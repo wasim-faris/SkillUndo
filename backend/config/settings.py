@@ -81,8 +81,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'skillswap_db',
-        'USER': 'skillswap_user',
+        'NAME': 'skillswapper_db',
+        'USER': 'wasim',
         'PASSWORD': '8078',
         'HOST': 'localhost',
         'PORT': '5432',

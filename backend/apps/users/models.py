@@ -13,7 +13,7 @@ class UserManager(BaseUserManager):
         user = user.save(using = self._db)
         
     
-    def create_supseruser(self, email, password = None , **extra_fields):
+    def create_superuser(self, email, password = None , **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
@@ -29,6 +29,7 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     bio = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
     
     objects = UserManager()
     
