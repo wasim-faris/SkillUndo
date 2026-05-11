@@ -4,14 +4,16 @@ from .serializers import(
     RegisterSerializer,
     LoginSerializer,
     UserSerializer,
-    UserUpdateSerializer
+    UserUpdateSerializer,
+    LogoutSerializer
 )
 from rest_framework.views import APIView
 from .services import (
     register_user,
     login_user,
     get_user_profile,
-    updated_user_profile
+    updated_user_profile,
+    logout_user
 )
 from core.responses import success_response,error_response
 from core.permissions import IsOwner
@@ -88,4 +90,18 @@ class ProfileUpdateview(APIView):
         return success_response(
             data = UserSerializer(user).data,
             message="Profile updated succesfully"
+        )
+class LogoutView(APIView):
+    def post(self,request):
+        serializer = LogoutSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return error_response(
+                message=serializer.errors,
+                status_code=400
+            )
+        logout_user(serializer.validated_data['refresh'])
+        
+        return success_response(
+            message="logout succesfully"
         )

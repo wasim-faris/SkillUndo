@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     'apps.chat',
     'apps.skill_sessions',
     'apps.skills',
-    'apps.users'
+    'apps.users',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [

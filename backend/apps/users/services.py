@@ -63,3 +63,8 @@ def updated_user_profile(user, validated_data):
     user.save()
     
     return user
+
+def logout_user(refresh_token):
+    token = RefreshToken(refresh_token)
+    token.blacklist()
+    return True

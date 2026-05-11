@@ -89,3 +89,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'photo',
             'bio'
         ]
+        
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(required = True)
