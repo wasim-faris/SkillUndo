@@ -15,7 +15,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     )
     
     class Meta:
-        model = User,
+        model = User
         fields = [
             'email',
             'name',
@@ -31,7 +31,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        validated_data.pop('confirm_passoword')
+        validated_data.pop('confirm_password')
         #frontend come with dict then **using this one assign in to the variable to save in the db
         user = User.objects.create_user(**validated_data)
         Profile.objects.create(user=user)
@@ -55,7 +55,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             'avg_rating',
             'total_sessions',
             'credits',
-            'is_verifed',  
+            'is_verified',  
         ]
         
         #used to only show in the frontend they cant edit this one          
@@ -81,6 +81,7 @@ class UserSerializer(serializers.ModelSerializer):
     
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
+        model = User
         fields = [
             'name',
             'city',

@@ -62,7 +62,7 @@ class LoginView(APIView):
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
     
-    def get(self, requsest):
+    def get(self, request):
         user = get_user_profile(request.user) 
         return success_response(
             data = UserSerializer(user).data,
@@ -73,9 +73,9 @@ class ProfileUpdateview(APIView):
     
     def patch(self, request):
         serializer = UserUpdateSerializer(
-            user = request.user,
+            instance = request.user,
             data = request.data,
-            partical = True
+            partial=True
         )
         
         if not serializer.is_valid():
