@@ -63,7 +63,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     #this is used to take the data with the user objects instead of calling the profile alone using user serializer can get both and show it
-    Profile = ProfileSerializer(read_only = True)
+    profile = ProfileSerializer(read_only = True)
     
     class Meta:
         model = User
