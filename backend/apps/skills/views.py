@@ -42,7 +42,9 @@ class UserSkillView(APIView):
                 message=serializer.errors,
                 status_code=400
             )
+            
         user_skills = add_skill_to_user(
+            user = request.user,
             skill_id=serializer.validated_data['skill_id'],
             skill_type=serializer.validated_data['skill_type']
         )
