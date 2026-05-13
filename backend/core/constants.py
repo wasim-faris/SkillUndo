@@ -1,12 +1,12 @@
 # Session statuses
-SESSION_PENDING = 'pending'
-SESSION_CONFIRMED = 'confirmed'
-SESSION_COMPLETED = 'completed'
-SESSION_CANCELLED = 'cancelled'
+SESSION_PENDING = "pending"
+SESSION_CONFIRMED = "confirmed"
+SESSION_COMPLETED = "completed"
+SESSION_CANCELLED = "cancelled"
 
 # Skill types
-SKILL_TEACH = 'teach'
-SKILL_LEARN = 'learn'
+SKILL_TEACH = "teach"
+SKILL_LEARN = "learn"
 
 # Credits
 CREDIT_PER_SESSION = 1

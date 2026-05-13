@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class SessionsConfig(AppConfig):
-    name = 'apps.skill_sessions'
+    name = "apps.skill_sessions"

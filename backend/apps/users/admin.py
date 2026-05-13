@@ -5,28 +5,36 @@ from .models import User, Profile
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ['email', 'name', 'city', 'is_active', 'is_active', 'is_staff', 'created_at']
-    list_filter = ['is_active', 'is_staff', 'is_verified']
-    search_fields = ['email', 'name', 'city']
-    ordering = ['-created_at']
+    list_display = [
+        "email",
+        "name",
+        "city",
+        "is_active",
+        "is_active",
+        "is_staff",
+        "created_at",
+    ]
+    list_filter = ["is_active", "is_staff", "is_verified"]
+    search_fields = ["email", "name", "city"]
+    ordering = ["-created_at"]
     fieldsets = (
-        (None, {'fields': ('email', 'password')}),
-        ('Personal info', {'fields': ('name', 'city', 'language', 'photo', 'bio')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
-        
+        (None, {"fields": ("email", "password")}),
+        ("Personal info", {"fields": ("name", "city", "language", "photo", "bio")}),
+        ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser")}),
     )
-    
+
     add_fieldsets = (
-    (
-        None,
-        {
-            'classes': ('wide',),
-            'fields': ('email', 'name', 'password1', 'password2'),
-        },
-    ),
-)
-    
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": ("email", "name", "password1", "password2"),
+            },
+        ),
+    )
+
+
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'avg_rating', 'total_sessions', 'credits', 'is_verified']
-    search_fields = ['user__email', 'user__name']
+    list_display = ["user", "avg_rating", "total_sessions", "credits", "is_verified"]
+    search_fields = ["user__email", "user__name"]
