@@ -8,11 +8,9 @@ const USER_KEY = 'skillswap_user';
 
 export function AuthProvider({ children }) {
   const [tokens, setTokens] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(TOKENS_KEY)) || null;
-    } catch {
-      return null;
-    }
+    const access = localStorage.getItem('access');
+    const refresh = localStorage.getItem('refresh');
+    return access ? { access, refresh } : null;
   });
 
   const [user, setUser] = useState(() => {
@@ -34,7 +32,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback((tokenData, userData) => {
-    localStorage.setItem(TOKENS_KEY, JSON.stringify(tokenData));
+    localStorage.setItem('access', tokenData.access);
+    localStorage.setItem('refresh', tokenData.refresh);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setTokens(tokenData);
     setUser(userData);
@@ -48,7 +47,8 @@ export function AuthProvider({ children }) {
     } catch {
       // Ignore logout errors — clear state regardless
     } finally {
-      localStorage.removeItem(TOKENS_KEY);
+      localStorage.removeItem('access');
+      localStorage.removeItem('refresh');
       localStorage.removeItem(USER_KEY);
       setTokens(null);
       setUser(null);

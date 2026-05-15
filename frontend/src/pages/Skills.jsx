@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { HiPlus, HiMagnifyingGlass, HiBolt, HiArrowPath, HiXMark } from 'react-icons/hi2';
+import { HiPlus, HiSearch, HiLightningBolt, HiRefresh, HiX, HiCheck } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import SkillPill from '../components/ui/SkillPill';
 import Button from '../components/ui/Button';
@@ -17,7 +17,6 @@ export default function Skills() {
   const [error, setError] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState('');
-  const [addError, setAddError] = useState('');
   const [addingId, setAddingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -30,7 +29,7 @@ export default function Skills() {
       setAllSkills(allRes.data || []);
     } catch {
       setError(true);
-      toast.error('Failed to load skills data');
+      toast.error('Sync failed');
     } finally {
       setLoading(false);
     }
@@ -58,31 +57,28 @@ export default function Skills() {
     setDeletingId(userSkillId);
     try {
       await deleteSkill(userSkillId);
-      toast.success('Skill removed! ✨');
+      toast.success('Skill removed');
     } catch {
       setUserSkills(prev);
-      toast.error('Failed to remove skill');
+      toast.error('Failed to remove');
     } finally {
       setDeletingId(null);
     }
   };
 
   const handleAdd = async (skill) => {
-    if (currentSkillIds.has(skill.id)) {
-      setAddError('Already in your list.');
-      return;
-    }
-    setAddError('');
+    if (currentSkillIds.has(skill.id)) return;
+    
     setAddingId(skill.id);
     const optimistic = { id: `temp-${skill.id}`, skill, skill_type: activeTab };
     setUserSkills((p) => [...p, optimistic]);
     try {
       const res = await addSkill(skill.id, activeTab);
       setUserSkills((p) => p.map((s) => s.id === optimistic.id ? res.data : s));
-      toast.success(`${skill.name} added! 🎉`);
-    } catch (err) {
+      toast.success(`${skill.name} added`);
+    } catch {
       setUserSkills((p) => p.filter((s) => s.id !== optimistic.id));
-      setAddError('Failed to add skill');
+      toast.error('Failed to add');
     } finally {
       setAddingId(null);
     }
@@ -90,22 +86,24 @@ export default function Skills() {
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-10 animate-fade-in">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <h1 className="text-4xl font-black text-[var(--text-primary)]">My Skills</h1>
+      <div className="max-w-[1128px] mx-auto space-y-6 py-4">
+        {/* Header Section */}
+        <div className="bg-white border border-neutral-200 rounded-lg p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-[24px] font-bold text-black tracking-tight">Identity & Skills</h1>
+            <p className="text-neutral-500 font-medium text-[14px]">Define your professional expertise and learning objectives.</p>
+          </div>
           
-          <div className="flex gap-2 bg-[var(--bg-secondary)] p-2 rounded-2xl shadow-xl shadow-purple-50">
+          <div className="flex bg-[#f3f2ef] p-1 rounded-md border border-neutral-200">
             {TABS.map((tab) => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setShowAdd(false); setAddError(''); }}
+                onClick={() => { setActiveTab(tab); setShowAdd(false); setSearch(''); }}
                 className={`
-                  px-8 py-3 rounded-xl text-sm font-black transition-all duration-500 capitalize
+                  px-8 py-2 rounded-md text-[14px] font-bold transition-all capitalize
                   ${activeTab === tab
-                    ? tab === 'teaching'
-                      ? 'bg-[var(--accent-primary)] text-white shadow-lg shadow-[rgba(94,106,210,0.1)]'
-                      : 'bg-[var(--accent-secondary)] text-white shadow-lg shadow-[rgba(255,101,132,0.1)]'
-                    : 'text-[var(--text-placeholder)] hover:text-[var(--text-muted)]'
+                    ? 'bg-white text-[#0a66c2] shadow-sm'
+                    : 'text-neutral-600 hover:text-black'
                   }
                 `}
               >
@@ -115,127 +113,112 @@ export default function Skills() {
           </div>
         </div>
 
-        {error ? (
-          <div className="card-premium text-center py-20">
-            <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-red-500 shadow-lg shadow-red-100">
-               <HiArrowPath size={40} />
-            </div>
-            <p className="text-xl font-black text-[var(--text-primary)] mb-6">Failed to load skills.</p>
-            <Button variant="outline" onClick={fetchData}>
-              Try Again
-            </Button>
-          </div>
-        ) : (
-          <div className="card-premium space-y-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--bg-primary)] rounded-full translate-x-1/2 -translate-y-1/2 -z-10"></div>
-            
-            <div className="flex items-center justify-between">
-               <h2 className="text-2xl font-black text-[var(--text-primary)] capitalize">
-                 Currently {activeTab}
-               </h2>
-               <Button
-                variant={showAdd ? 'outline' : activeTab === 'teaching' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => { setShowAdd((v) => !v); setAddError(''); setSearch(''); }}
-                className="gap-2"
-              >
-                {showAdd ? <HiXMark size={18} /> : <HiPlus size={18} />}
-                {showAdd ? 'Close Search' : 'Add New Skill'}
-              </Button>
-            </div>
-
-            {loading ? (
-              <div className="flex flex-wrap gap-3">
-                {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-10 w-32 bg-[var(--bg-tertiary)] animate-pulse rounded-xl" />)}
-              </div>
-            ) : currentSkills.length === 0 ? (
-              <div className="text-center py-16 bg-[var(--bg-primary)] rounded-[2rem] border-2 border-dashed border-[var(--border-default)]">
-                <div className="w-16 h-16 bg-[var(--bg-secondary)] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-                   <HiBolt size={32} className="text-gray-200" />
-                </div>
-                <p className="text-[var(--text-placeholder)] font-bold">
-                  You haven&apos;t added any {activeTab} skills yet.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-4">
-                {currentSkills.map((us) => (
-                  <SkillPill
-                    key={us.id}
-                    name={us.skill.name}
-                    type={activeTab}
-                    onDelete={deletingId === us.id ? undefined : () => handleDelete(us.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Search Panel */}
-            {showAdd && (
-              <div className="pt-8 border-t border-[var(--border-default)] space-y-6 animate-fade-in">
-                <div className="relative group">
-                  <HiMagnifyingGlass size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-placeholder)] group-focus-within:text-[var(--accent-primary)] transition-colors" />
-                  <input
-                    type="text"
-                    placeholder="Search from 500+ skills..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="input-premium pl-14 text-lg"
-                    autoFocus
-                  />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           {/* Current List Column */}
+           <div className="lg:col-span-2">
+              <div className="bg-white border border-neutral-200 rounded-lg p-6 space-y-8 min-h-[400px]">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                   <h2 className="text-[18px] font-bold text-black capitalize">
+                     {activeTab} Skills
+                   </h2>
+                   {!showAdd && (
+                     <Button
+                      size="sm"
+                      onClick={() => setShowAdd(true)}
+                      className="gap-2"
+                    >
+                      <HiPlus size={16} /> Add skill
+                    </Button>
+                   )}
                 </div>
 
-                {addError && (
-                  <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold flex items-center gap-2 animate-slide-left">
-                    <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
-                    {addError}
+                {loading ? (
+                  <div className="flex flex-wrap gap-3">
+                    {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-9 w-32 bg-neutral-100 animate-pulse rounded-full" />)}
+                  </div>
+                ) : currentSkills.length === 0 ? (
+                  <div className="text-center py-20 flex flex-col items-center">
+                    <HiLightningBolt size={48} className="text-neutral-100 mb-4" />
+                    <p className="text-neutral-500 font-bold">You haven&apos;t added any {activeTab} skills yet.</p>
+                    <button onClick={() => setShowAdd(true)} className="text-[#0a66c2] font-bold hover:underline mt-2">Start adding now</button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    {currentSkills.map((us) => (
+                      <SkillPill
+                        key={us.id}
+                        name={us.skill.name}
+                        type={activeTab}
+                        onDelete={deletingId === us.id ? undefined : () => handleDelete(us.id)}
+                      />
+                    ))}
                   </div>
                 )}
-
-                <div className="max-h-96 overflow-y-auto space-y-8 pr-2 custom-scrollbar">
-                  {Object.keys(filteredGrouped).length === 0 ? (
-                    <div className="text-center py-10">
-                       <p className="text-[var(--text-placeholder)] font-bold text-lg">No results for "{search}"</p>
-                       <p className="text-gray-300 text-sm mt-1">Try a different keyword or category.</p>
-                    </div>
-                  ) : (
-                    Object.entries(filteredGrouped).map(([category, skills]) => (
-                      <div key={category} className="space-y-4">
-                        <p className="text-xs font-black text-[var(--text-placeholder)] uppercase tracking-widest ml-1">
-                          {category}
-                        </p>
-                        <div className="flex flex-wrap gap-3">
-                          {skills.map((skill) => {
-                            const alreadyHas = currentSkillIds.has(skill.id);
-                            return (
-                              <button
-                                key={skill.id}
-                                disabled={addingId === skill.id || alreadyHas}
-                                onClick={() => handleAdd(skill)}
-                                className={`
-                                  px-5 py-2.5 rounded-2xl text-sm font-bold transition-all duration-300 border-2
-                                  ${alreadyHas
-                                    ? 'bg-[var(--bg-primary)] text-gray-300 border-[var(--border-default)] cursor-default'
-                                    : activeTab === 'teaching'
-                                    ? 'border-purple-50 text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-white hover:border-[var(--accent-primary)] hover:shadow-lg hover:shadow-[rgba(94,106,210,0.1)]'
-                                    : 'border-pink-50 text-[var(--accent-secondary)] hover:bg-[var(--accent-secondary)] hover:text-white hover:border-[var(--accent-secondary)] hover:shadow-lg hover:shadow-[rgba(255,101,132,0.1)]'
-                                  }
-                                  ${addingId === skill.id ? 'animate-pulse' : ''}
-                                `}
-                              >
-                                {alreadyHas ? `✓ ${skill.name}` : skill.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
               </div>
-            )}
-          </div>
-        )}
+           </div>
+
+           {/* Add/Search Column */}
+           <div className="space-y-6">
+              <div className={`bg-white border border-neutral-200 rounded-lg p-6 space-y-6 transition-all ${showAdd ? 'opacity-100 translate-y-0' : 'opacity-50 pointer-events-none grayscale translate-y-4'}`}>
+                 <div className="flex items-center justify-between">
+                    <h3 className="text-[16px] font-bold text-black">Find New Skills</h3>
+                    <button onClick={() => setShowAdd(false)} className="text-neutral-400 hover:text-black">
+                       <HiX size={20} />
+                    </button>
+                 </div>
+
+                 <div className="relative">
+                   <HiSearch size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                   <input
+                     type="text"
+                     placeholder="Search for a skill..."
+                     value={search}
+                     onChange={(e) => setSearch(e.target.value)}
+                     className="w-full bg-[#f9fafb] border border-neutral-300 rounded-md pl-10 pr-4 py-2 text-[14px] text-black outline-none focus:border-[#0a66c2]"
+                   />
+                 </div>
+
+                 <div className="max-h-[500px] overflow-y-auto space-y-6 pr-1 custom-scrollbar">
+                   {Object.keys(filteredGrouped).length === 0 ? (
+                     <div className="text-center py-10">
+                        <p className="text-neutral-400 text-sm">No results found.</p>
+                     </div>
+                   ) : (
+                     Object.entries(filteredGrouped).map(([category, skills]) => (
+                       <div key={category} className="space-y-3">
+                         <p className="text-[11px] font-black text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">
+                           {category}
+                         </p>
+                         <div className="flex flex-col gap-1">
+                           {skills.slice(0, 15).map((skill) => {
+                             const alreadyHas = currentSkillIds.has(skill.id);
+                             return (
+                               <button
+                                 key={skill.id}
+                                 disabled={addingId === skill.id || alreadyHas}
+                                 onClick={() => handleAdd(skill)}
+                                 className={`
+                                   flex items-center justify-between w-full px-3 py-2 rounded-md text-[13px] font-bold transition-all
+                                   ${alreadyHas
+                                     ? 'text-emerald-600 bg-emerald-50 cursor-default'
+                                     : 'text-neutral-600 hover:bg-neutral-100'
+                                   }
+                                   ${addingId === skill.id ? 'animate-pulse' : ''}
+                                 `}
+                               >
+                                 <span className="truncate">{skill.name}</span>
+                                 {alreadyHas ? <HiCheck size={16} /> : <HiPlus size={16} className="text-neutral-300" />}
+                               </button>
+                             );
+                           })}
+                         </div>
+                       </div>
+                     ))
+                   )}
+                 </div>
+              </div>
+           </div>
+        </div>
       </div>
     </AppLayout>
   );

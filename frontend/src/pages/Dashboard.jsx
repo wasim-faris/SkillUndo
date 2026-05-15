@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { HiArrowPath, HiBolt, HiBookOpen, HiUsers, HiChevronRight } from 'react-icons/hi2';
+import { HiRefresh, HiLightningBolt, HiBookOpen, HiUsers, HiChevronRight, HiGlobe, HiAcademicCap } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import SkeletonCard, { SkeletonStat } from '../components/ui/SkeletonCard';
 import Avatar from '../components/ui/Avatar';
@@ -13,42 +13,44 @@ import { getUserSkills, getMatches } from '../api/skills';
 
 function StatCard({ icon: Icon, label, value, color, delay }) {
   return (
-    <div className="card-premium flex items-center gap-6 animate-fade-in" style={{ animationDelay: delay }}>
-      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${color}`}>
-        <Icon size={30} className="text-white" />
-      </div>
-      <div>
-        <p className="text-3xl font-black text-[var(--text-primary)] leading-tight">{value}</p>
-        <p className="text-sm font-bold text-[var(--text-placeholder)] uppercase tracking-wider">{label}</p>
+    <div className="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-all animate-fade-in" style={{ animationDelay: delay }}>
+      <div className="flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${color} bg-opacity-10`}>
+          <Icon size={24} className={color.replace('bg-', 'text-').split(' ')[0]} />
+        </div>
+        <div>
+          <p className="text-[24px] font-bold text-black leading-tight">{value}</p>
+          <p className="text-[12px] font-bold text-neutral-500 uppercase tracking-tight">{label}</p>
+        </div>
       </div>
     </div>
   );
 }
 
 function MatchCard({ match, delay }) {
-  const teaches = match.teaching_skills?.slice(0, 2) || [];
-  const learns = match.learning_skills?.slice(0, 2) || [];
+  const teaches = match.teaching_skills || [];
+  const nameParts = (match.name || '').split(' ');
 
   return (
-    <div className="card-premium group hover:scale-[1.02] transition-all duration-300 animate-fade-in" style={{ animationDelay: delay }}>
-      <div className="flex items-center gap-4 mb-6">
-        <Avatar firstName={match.first_name} lastName={match.last_name} size="lg" />
+    <div className="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-all animate-fade-in flex flex-col h-full" style={{ animationDelay: delay }}>
+      <div className="flex items-center gap-3 mb-4">
+        <Avatar firstName={nameParts[0]} lastName={nameParts[1]} src={match.photo} size="lg" className="!rounded-md" />
         <div className="min-w-0">
-          <p className="font-bold text-[var(--text-primary)] text-lg group-hover:text-[var(--accent-primary)] transition-colors">
-            {match.first_name} {match.last_name}
+          <p className="font-bold text-black text-[16px] hover:text-[#0a66c2] hover:underline cursor-pointer truncate">
+            {match.name}
           </p>
-          <p className="text-sm text-[var(--text-placeholder)] font-medium truncate">{match.email}</p>
+          <div className="flex items-center gap-1.5 text-neutral-500 text-xs font-medium">
+             <HiGlobe size={14} /> {match.city || 'Remote'}
+          </div>
         </div>
       </div>
-      {match.bio && (
-        <p className="text-[var(--text-secondary)] text-sm font-medium line-clamp-2 mb-6 leading-relaxed">{match.bio}</p>
-      )}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {teaches.map((s) => <SkillPill key={s.id} name={s.name} type="teaching" />)}
-        {learns.map((s) => <SkillPill key={s.id} name={s.name} type="learning" />)}
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        {teaches.slice(0, 3).map((s) => <SkillPill key={s.id} name={s.name} type="teaching" />)}
       </div>
-      <Button variant="outline" fullWidth className="group-hover:bg-[var(--accent-primary)] group-hover:text-white group-hover:border-[var(--accent-primary)]">
-        Connect <HiChevronRight />
+
+      <Button variant="outline" size="sm" fullWidth className="mt-auto">
+        Message
       </Button>
     </div>
   );
@@ -58,7 +60,6 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [profile, setProfile] = useState(null);
   const [userSkills, setUserSkills] = useState([]);
   const [matches, setMatches] = useState([]);
 
@@ -66,17 +67,15 @@ export default function Dashboard() {
     setLoading(true);
     setError(false);
     try {
-      const [profileRes, skillsRes, matchesRes] = await Promise.all([
-        getProfile(),
+      const [skillsRes, matchesRes] = await Promise.all([
         getUserSkills(),
         getMatches(),
       ]);
-      setProfile(profileRes.data);
       setUserSkills(skillsRes.data || []);
       setMatches(matchesRes.data || []);
     } catch {
       setError(true);
-      toast.error('Failed to sync data');
+      toast.error('Sync failed');
     } finally {
       setLoading(false);
     }
@@ -90,148 +89,99 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-12 py-6">
+      <div className="max-w-6xl mx-auto space-y-8 py-4">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 animate-fade-in">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-black text-[var(--text-primary)] leading-tight">
-              Welcome back, <span className="text-[var(--accent-primary)]">{user?.first_name || profile?.first_name}</span>! 👋
+            <h1 className="text-2xl font-bold text-black tracking-tight">
+              Personal Dashboard
             </h1>
-            <p className="text-[var(--text-secondary)] font-bold text-lg mt-2">Ready to swap some knowledge today?</p>
+            <p className="text-neutral-500 font-medium text-[14px]">You have {matches.length} potential skill matches this week.</p>
           </div>
-          <Button variant="ghost" onClick={fetchAll} className="text-[var(--text-placeholder)] hover:text-[var(--accent-primary)] font-bold">
-            <HiArrowPath size={20} className={loading ? 'animate-spin' : ''} /> Sync Data
-          </Button>
+          <button onClick={fetchAll} className="text-neutral-500 hover:text-[#0a66c2] transition-colors flex items-center gap-2 text-sm font-bold">
+            <HiRefresh size={18} className={loading ? 'animate-spin' : ''} /> Sync metrics
+          </button>
         </div>
 
-        {/* Stat Cards */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => <SkeletonStat key={i} />)}
-          </div>
-        ) : error ? (
-          <div className="card-premium text-center py-16 animate-fade-in">
-            <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-red-500 shadow-lg shadow-red-100">
-               <HiArrowPath size={40} />
-            </div>
-            <p className="text-xl font-bold text-[var(--text-primary)] mb-6">Failed to load dashboard data.</p>
-            <Button variant="outline" onClick={fetchAll}>
-               Try Again
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <StatCard 
-                icon={HiBolt} 
-                label="Teaching" 
-                value={teaching.length} 
-                color="bg-[var(--accent-primary)] shadow-[rgba(94,106,210,0.2)]" 
-                delay="0.1s"
-              />
-              <StatCard 
-                icon={HiBookOpen} 
-                label="Learning" 
-                value={learning.length} 
-                color="bg-[var(--accent-secondary)] shadow-pink-200" 
-                delay="0.2s"
-              />
-              <StatCard 
-                icon={HiUsers} 
-                label="Matches" 
-                value={matches.length} 
-                color="bg-emerald-500 shadow-emerald-100" 
-                delay="0.3s"
-              />
-            </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {loading ? [1, 2, 3].map((i) => <SkeletonStat key={i} />) : (
+            <>
+              <StatCard icon={HiLightningBolt} label="Active Teaching" value={teaching.length} color="bg-blue-600 text-blue-600" delay="0.1s" />
+              <StatCard icon={HiBookOpen} label="Learning Goals" value={learning.length} color="bg-orange-500 text-orange-500" delay="0.2s" />
+              <StatCard icon={HiUsers} label="Professional Matches" value={matches.length} color="bg-green-600 text-green-600" delay="0.3s" />
+            </>
+          )}
+        </div>
 
-            {/* Top Matches */}
-            <section className="animate-fade-in" style={{ animationDelay: '0.4s' }}>
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-black text-[var(--text-primary)]">Top Matches For You</h2>
-                <Link to="/matches" className="btn-secondary text-sm px-4 py-2 flex items-center gap-2">
-                  View all <HiChevronRight />
-                </Link>
-              </div>
-              
-              {topMatches.length === 0 ? (
-                <div className="card-premium text-center py-20 bg-[var(--bg-primary)] border-dashed border-2 border-[var(--border-hover)]">
-                  <div className="w-24 h-24 bg-[var(--bg-secondary)] rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-xl">
-                    <HiUsers size={48} className="text-gray-200" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-4">No matches yet</h3>
-                  <p className="text-[var(--text-secondary)] font-medium mb-10 max-w-sm mx-auto">
-                    Add more skills you know and skills you want to learn to find your perfect match.
-                  </p>
-                  <Link to="/skills">
-                    <Button size="lg">Add Skills Now</Button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           {/* Left/Main Column */}
+           <div className="lg:col-span-2 space-y-8">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                  <h2 className="text-[18px] font-bold text-black">Top Matches for You</h2>
+                  <Link to="/matches" className="text-sm font-bold text-[#0a66c2] hover:underline flex items-center gap-1">
+                    View all
                   </Link>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {topMatches.map((m, idx) => <MatchCard key={m.id} match={m} delay={`${0.5 + idx * 0.1}s`} />)}
-                </div>
-              )}
-            </section>
 
-            {/* Quick Skills Summary */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in" style={{ animationDelay: '0.8s' }}>
-              <div className="card-premium">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[rgba(94,106,210,0.1)] rounded-xl flex items-center justify-center text-[var(--accent-primary)]">
-                       <HiBolt size={20} />
-                    </div>
-                    <h3 className="font-bold text-[var(--text-primary)] text-lg">My Teaching Skills</h3>
+                {loading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[1, 2].map((i) => <SkeletonCard key={i} />)}
                   </div>
-                  <Link to="/skills" className="text-[var(--accent-primary)] font-bold text-sm hover:underline">Manage</Link>
-                </div>
-                
-                {teaching.length === 0 ? (
-                  <p className="text-[var(--text-placeholder)] font-medium bg-[var(--bg-primary)] p-4 rounded-xl text-center">No skills listed yet.</p>
                 ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {teaching.slice(0, 5).map((s) => (
-                      <SkillPill key={s.id} name={s.skill.name} type="teaching" />
-                    ))}
-                    {teaching.length > 5 && (
-                      <span className="bg-[var(--bg-tertiary)] text-[var(--text-secondary)] px-3 py-1.5 rounded-xl text-xs font-bold">
-                        +{teaching.length - 5} others
-                      </span>
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {topMatches.map((m, idx) => <MatchCard key={m.id} match={m} delay={`${0.4 + idx * 0.1}s`} />)}
                   </div>
                 )}
+              </section>
+
+              <section className="bg-white border border-neutral-200 rounded-lg p-6">
+                 <h3 className="text-lg font-bold text-black mb-6">Skills Activity</h3>
+                 <div className="space-y-6">
+                    <div>
+                       <p className="text-[14px] font-bold text-neutral-500 mb-3 uppercase tracking-wider">Currently Teaching</p>
+                       <div className="flex flex-wrap gap-2">
+                          {teaching.map(s => <SkillPill key={s.id} name={s.skill?.name} type="teaching" />)}
+                       </div>
+                    </div>
+                    <div>
+                       <p className="text-[14px] font-bold text-neutral-500 mb-3 uppercase tracking-wider">Learning Goals</p>
+                       <div className="flex flex-wrap gap-2">
+                          {learning.map(s => <SkillPill key={s.id} name={s.skill?.name} type="learning" />)}
+                       </div>
+                    </div>
+                 </div>
+              </section>
+           </div>
+
+           {/* Right Column */}
+           <div className="space-y-6">
+              <div className="bg-white border border-neutral-200 rounded-lg p-5">
+                 <h3 className="text-[16px] font-bold text-black mb-4">Analytics Overview</h3>
+                 <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                       <span className="text-[14px] text-neutral-500">Profile views</span>
+                       <span className="text-[14px] font-bold text-[#0a66c2]">124</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                       <span className="text-[14px] text-neutral-500">Post impressions</span>
+                       <span className="text-[14px] font-bold text-[#0a66c2]">2.1k</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-neutral-100 pt-3 mt-3">
+                       <span className="text-[14px] text-neutral-500">Search appearances</span>
+                       <span className="text-[14px] font-bold text-[#0a66c2]">18</span>
+                    </div>
+                 </div>
               </div>
 
-              <div className="card-premium">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-pink-50 rounded-xl flex items-center justify-center text-[var(--accent-secondary)]">
-                       <HiBookOpen size={20} />
-                    </div>
-                    <h3 className="font-bold text-[var(--text-primary)] text-lg">My Learning Goals</h3>
-                  </div>
-                  <Link to="/skills" className="text-[var(--accent-secondary)] font-bold text-sm hover:underline">Manage</Link>
-                </div>
-                
-                {learning.length === 0 ? (
-                  <p className="text-[var(--text-placeholder)] font-medium bg-[var(--bg-primary)] p-4 rounded-xl text-center">No goals listed yet.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {learning.slice(0, 5).map((s) => (
-                      <SkillPill key={s.id} name={s.skill.name} type="learning" />
-                    ))}
-                    {learning.length > 5 && (
-                      <span className="bg-[var(--bg-tertiary)] text-[var(--text-secondary)] px-3 py-1.5 rounded-xl text-xs font-bold">
-                        +{learning.length - 5} others
-                      </span>
-                    )}
-                  </div>
-                )}
+              <div className="bg-[#eef3f8] border border-neutral-200 rounded-lg p-5">
+                 <p className="text-[14px] font-bold text-black mb-2">Advance your career</p>
+                 <p className="text-[12px] text-neutral-600 mb-4 font-medium">Unlock premium features to see who viewed your profile and get more matches.</p>
+                 <Button variant="outline" size="sm" fullWidth>Learn More</Button>
               </div>
-            </section>
-          </>
-        )}
+           </div>
+        </div>
       </div>
     </AppLayout>
   );

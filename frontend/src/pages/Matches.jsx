@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { HiUsers, HiArrowPath, HiChevronRight } from 'react-icons/hi2';
+import { HiUsers, HiRefresh, HiChevronRight, HiLocationMarker } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import Avatar from '../components/ui/Avatar';
 import SkillPill from '../components/ui/SkillPill';
@@ -11,51 +11,41 @@ import { getMatches } from '../api/skills';
 
 function MatchCard({ match, delay }) {
   const teaches = match.teaching_skills || [];
-  const learns = match.learning_skills || [];
+  const nameParts = (match.name || '').split(' ');
 
   return (
-    <div className="card-premium group hover:scale-[1.02] hover:border-[var(--accent-primary)] hover:shadow-[0_0_20px_rgba(94,106,210,0.1)] transition-all duration-300 animate-fade-in flex flex-col h-full" style={{ animationDelay: delay }}>
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Avatar firstName={match.first_name} lastName={match.last_name} size="lg" />
+    <div className="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-all animate-fade-in flex flex-col h-full" style={{ animationDelay: delay }}>
+      <div className="flex items-center gap-4 mb-4">
+        <Avatar firstName={nameParts[0]} lastName={nameParts[1]} src={match.photo} size="lg" className="!rounded-full border border-neutral-100" />
         <div className="min-w-0">
-          <p className="font-black text-[var(--text-primary)] text-lg group-hover:text-[var(--accent-primary)] transition-colors">
-            {match.first_name} {match.last_name}
+          <p className="font-bold text-black text-[16px] hover:text-[#0a66c2] hover:underline cursor-pointer truncate">
+            {match.name}
           </p>
-          <p className="text-sm text-[var(--text-placeholder)] font-bold">{match.email}</p>
+          <div className="flex items-center gap-1.5 text-neutral-500 text-[12px] font-medium">
+             <HiLocationMarker size={14} /> {match.city || 'Remote'}
+          </div>
         </div>
       </div>
 
-      {/* Bio */}
       {match.bio && (
-        <p className="text-[var(--text-secondary)] text-sm font-medium line-clamp-3 mb-6 leading-relaxed flex-1">
+        <p className="text-neutral-600 text-[13px] font-medium line-clamp-2 mb-4 leading-relaxed">
           {match.bio}
         </p>
       )}
 
-      {/* Skill groups */}
-      <div className="space-y-4 mb-8 mt-auto">
+      <div className="space-y-3 mb-6 mt-auto">
         {teaches.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[10px] font-black text-[var(--text-placeholder)] uppercase tracking-widest ml-1">Teaches</p>
-            <div className="flex flex-wrap gap-2">
-              {teaches.map((s) => <SkillPill key={s.id} name={s.name} type="teaching" />)}
-            </div>
-          </div>
-        )}
-        {learns.length > 0 && (
-          <div className="space-y-2">
-             <p className="text-[10px] font-black text-[var(--text-placeholder)] uppercase tracking-widest ml-1">Wants to learn</p>
-            <div className="flex flex-wrap gap-2">
-              {learns.map((s) => <SkillPill key={s.id} name={s.name} type="learning" />)}
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest ml-1">Expert in</p>
+            <div className="flex flex-wrap gap-1.5">
+              {teaches.slice(0, 3).map((s) => <SkillPill key={s.id} name={s.name} type="teaching" />)}
             </div>
           </div>
         )}
       </div>
 
-      {/* Action */}
-      <Button variant="outline" fullWidth className="group-hover:bg-[var(--accent-primary)] group-hover:text-white group-hover:border-[var(--accent-primary)]">
-        Send Message <HiChevronRight />
+      <Button variant="outline" size="sm" fullWidth>
+        Connect
       </Button>
     </div>
   );
@@ -74,7 +64,7 @@ export default function Matches() {
       setMatches(res.data || []);
     } catch {
       setError(true);
-      toast.error('Failed to find matches');
+      toast.error('Sync failed');
     } finally {
       setLoading(false);
     }
@@ -84,45 +74,41 @@ export default function Matches() {
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-10 animate-fade-in">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="max-w-[1128px] mx-auto space-y-6 py-4">
+        <div className="bg-white border border-neutral-200 rounded-lg p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-black text-[var(--text-primary)]">Matches</h1>
-            <p className="text-[var(--text-secondary)] font-bold text-lg mt-2">Discover people ready to trade skills with you.</p>
+            <h1 className="text-[20px] font-bold text-black tracking-tight">Professional Network</h1>
+            <p className="text-neutral-500 font-medium text-[14px]">Based on your skills and interests</p>
           </div>
-          <Button variant="ghost" onClick={fetchMatches} className="text-[var(--text-placeholder)] hover:text-[var(--accent-primary)] font-bold">
-            <HiArrowPath size={20} className={loading ? 'animate-spin' : ''} /> Refresh
-          </Button>
+          <button onClick={fetchMatches} className="text-neutral-500 hover:text-[#0a66c2] transition-colors flex items-center gap-2 text-sm font-bold">
+            <HiRefresh size={18} className={loading ? 'animate-spin' : ''} /> Refresh suggestions
+          </button>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => <SkeletonCard key={i} />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <SkeletonCard key={i} />)}
           </div>
         ) : error ? (
-          <div className="card-premium text-center py-20">
-            <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-red-500 shadow-lg shadow-red-100">
-               <HiArrowPath size={40} />
-            </div>
-            <p className="text-xl font-black text-[var(--text-primary)] mb-6">Failed to load matches.</p>
-            <Button variant="outline" onClick={fetchMatches}>Try Again</Button>
+          <div className="bg-white border border-neutral-200 rounded-lg text-center py-20 flex flex-col items-center">
+            <HiRefresh size={32} className="text-red-500 mb-4" />
+            <p className="text-black font-bold mb-6">Failed to load matches.</p>
+            <Button variant="outline" size="sm" onClick={fetchMatches}>Try Again</Button>
           </div>
         ) : matches.length === 0 ? (
-          <div className="card-premium text-center py-24 bg-[var(--bg-primary)] border-dashed border-2 border-[var(--border-hover)]">
-             <div className="w-24 h-24 bg-[var(--bg-secondary)] rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-xl">
-               <HiUsers size={48} className="text-gray-200" />
-             </div>
-            <h2 className="text-3xl font-black text-[var(--text-primary)] mb-4">No matches found yet</h2>
-            <p className="text-[var(--text-secondary)] font-bold mb-10 max-w-md mx-auto">
-              Add more skills to your profile to find people who match your interests.
+          <div className="bg-white border border-neutral-200 rounded-lg text-center py-24 flex flex-col items-center">
+             <HiUsers size={48} className="text-neutral-200 mb-6" />
+            <h2 className="text-[20px] font-bold text-black mb-2">No matches found yet</h2>
+            <p className="text-neutral-500 font-medium mb-10 max-w-sm mx-auto">
+              Expand your skills to see more people who match your professional profile.
             </p>
             <Link to="/skills">
-              <Button size="lg">Add More Skills</Button>
+              <Button size="sm">Add Skills</Button>
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {matches.map((m, idx) => <MatchCard key={m.id} match={m} delay={`${0.1 + idx * 0.1}s`} />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {matches.map((m, idx) => <MatchCard key={m.id} match={m} delay={`${0.1 + idx * 0.05}s`} />)}
           </div>
         )}
       </div>

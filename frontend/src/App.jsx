@@ -4,10 +4,10 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import PublicRoute from './routes/PublicRoute';
 
-import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import Feed from './pages/Feed';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Skills from './pages/Skills';
@@ -18,9 +18,10 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Landing />} />
+          {/* Root Redirect */}
+          <Route path="/" element={<Navigate to="/feed" replace />} />
           
+          {/* Authentication Routes (Public) */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Auth />} />
             <Route path="/register" element={<Auth />} />
@@ -28,20 +29,20 @@ export default function App() {
             <Route path="/reset-password/:token" element={<ResetPassword />} />
           </Route>
 
-          {/* Protected routes */}
+          {/* Protected Application Routes */}
           <Route element={<ProtectedRoute />}>
+            <Route path="/feed" element={<Feed />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/matches" element={<Matches />} />
           </Route>
 
-          {/* Default redirect */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Catch-all Redirect */}
+          <Route path="*" element={<Navigate to="/feed" replace />} />
         </Routes>
       </BrowserRouter>
 
-      {/* Global toast provider */}
       <Toaster
         position="top-right"
         toastOptions={{
@@ -49,12 +50,18 @@ export default function App() {
           style: {
             fontFamily: 'Inter, system-ui, sans-serif',
             fontSize: '14px',
-            borderRadius: '12px',
+            borderRadius: '8px',
             padding: '12px 16px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+            background: '#ffffff',
+            color: '#191919',
+            border: '1px solid #e0e0e0',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
           },
           success: {
-            iconTheme: { primary: '#6366f1', secondary: '#fff' },
+            iconTheme: {
+              primary: '#0a66c2',
+              secondary: '#ffffff',
+            },
           },
         }}
       />

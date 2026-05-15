@@ -1,38 +1,33 @@
-import axios from 'axios';
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+import axios from 'axios'
 
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: '', // proxy handles it
   headers: {
     'Content-Type': 'application/json',
   },
-});
+})
 
-// Request interceptor — attach JWT access token
-api.interceptors.request.use(
-  (config) => {
-    const tokens = JSON.parse(localStorage.getItem('skillswap_tokens') || 'null');
-    if (tokens?.access) {
-      config.headers.Authorization = `Bearer ${tokens.access}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// attach JWT token to every request automatically
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
 
-// Response interceptor — auto-logout on 401
+// handle token refresh on 401
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      // Clear stored auth and redirect to login
-      localStorage.removeItem('skillswap_tokens');
-      localStorage.removeItem('skillswap_user');
-      window.dispatchEvent(new Event('auth:logout'));
+      localStorage.removeItem('access')
+      localStorage.removeItem('refresh')
+      window.dispatchEvent(new Event('auth:logout'))
+      window.location.href = '/login'
     }
-    return Promise.reject(error);
+    return Promise.reject(error)
   }
-);
+)
 
-export default api;
+export default api

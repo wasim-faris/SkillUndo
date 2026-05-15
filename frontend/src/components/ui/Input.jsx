@@ -1,77 +1,54 @@
-import { forwardRef, useState } from 'react';
-import { HiEye, HiEyeSlash } from 'react-icons/hi2';
+import { useState } from 'react';
+import { HiEye, HiEyeOff, HiXCircle } from 'react-icons/hi';
 
-const Input = forwardRef(function Input(
-  {
-    label,
-    error,
-    type = 'text',
-    id,
-    className = '',
-    onChange,
-    onClearError,
-    ...rest
-  },
-  ref
-) {
+export default function Input({ 
+  label, 
+  error, 
+  type = 'text', 
+  className = '', 
+  ...props 
+}) {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === 'password';
   const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
-  const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
-
-  const handleChange = (e) => {
-    if (onClearError) onClearError();
-    if (onChange) onChange(e);
-  };
 
   return (
-    <div className={`flex flex-col gap-1.5 ${className} animate-fade-in`}>
+    <div className="flex flex-col w-full gap-1">
       {label && (
-        <label
-          htmlFor={inputId}
-          className="label-premium"
-        >
+        <label className="text-[13px] font-semibold text-neutral-600 ml-1">
           {label}
         </label>
       )}
-      <div className="relative">
+      <div className="relative group">
         <input
-          ref={ref}
-          id={inputId}
           type={inputType}
-          onChange={handleChange}
           className={`
-            input-premium
-            ${isPassword ? 'pr-12' : ''}
-            ${error ? 'border-red-400 focus:border-red-400 focus:ring-red-50' : ''}
+            w-full bg-[#f9fafb] border border-neutral-300 rounded-md px-3 py-2 text-sm text-black placeholder-neutral-400
+            transition-all duration-200 outline-none
+            focus:border-[#0a66c2] focus:ring-1 focus:ring-[#0a66c2]
+            hover:border-neutral-400
+            ${error ? 'border-red-600 focus:border-red-600 focus:ring-red-600/20' : ''}
+            ${className}
           `}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${inputId}-error` : undefined}
-          {...rest}
+          {...props}
         />
+        
         {isPassword && (
           <button
             type="button"
-            tabIndex={-1}
-            onClick={() => setShowPassword((v) => !v)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-placeholder)] hover:text-[var(--accent-primary)] transition-colors"
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
           >
-            {showPassword ? <HiEyeSlash size={20} /> : <HiEye size={20} />}
+            {showPassword ? <HiEyeOff size={18} /> : <HiEye size={18} />}
           </button>
         )}
       </div>
       {error && (
-        <p
-          id={`${inputId}-error`}
-          className="text-red-500 text-xs mt-1 ml-1 font-medium flex items-center gap-1 animate-slide-left"
-          role="alert"
-        >
-          <span className="w-1 h-1 bg-red-500 rounded-full"></span> {error}
-        </p>
+        <div className="flex items-center gap-1 mt-1 ml-1 text-red-600 animate-fade-in">
+          <HiXCircle size={14} />
+          <span className="text-[11px] font-bold">{error}</span>
+        </div>
       )}
     </div>
   );
-});
-
-export default Input;
+}

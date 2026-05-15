@@ -3,5 +3,5 @@ import { useAuth } from '../context/AuthContext';
 
 export default function PublicRoute() {
   const { tokens } = useAuth();
-  return tokens ? <Navigate to="/dashboard" replace /> : <Outlet />;
+  return tokens ? <Navigate to="/feed" replace /> : <Outlet />;
 }

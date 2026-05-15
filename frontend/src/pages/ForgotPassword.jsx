@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { HiBolt, HiEnvelope, HiChevronLeft } from 'react-icons/hi2';
+import { HiLightningBolt, HiMail, HiChevronLeft } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { forgotPassword } from '../api/auth';
@@ -38,7 +38,7 @@ export default function ForgotPassword() {
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-2 mb-10 group">
           <div className="w-12 h-12 bg-[var(--accent-primary)] rounded-2xl flex items-center justify-center shadow-lg shadow-[rgba(94,106,210,0.2)] group-hover:scale-110 transition-transform duration-300">
-            <HiBolt className="text-white w-7 h-7" />
+            <HiLightningBolt className="text-white w-7 h-7" />
           </div>
           <span className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">SkillSwap</span>
         </Link>
@@ -47,7 +47,7 @@ export default function ForgotPassword() {
           {submitted ? (
             <div className="flex flex-col items-center text-center py-6 gap-6 animate-fade-in">
               <div className="w-20 h-20 rounded-3xl bg-green-50 flex items-center justify-center shadow-lg shadow-green-100">
-                <HiEnvelope size={40} className="text-green-500" />
+                <HiMail size={40} className="text-green-500" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Check your email</h2>

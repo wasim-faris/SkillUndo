@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { HiCheckCircle, HiStar, HiCalendarDays } from 'react-icons/hi2';
+import { HiCheckCircle, HiStar, HiCalendar } from 'react-icons/hi';
 import Avatar from './Avatar';
 
 const Scene1 = ({ active }) => (
   <div className={`absolute inset-0 flex flex-col items-center justify-center p-6 transition-all duration-[600ms] ease-out ${active ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5 pointer-events-none'}`}>
-    <div className="w-full max-w-sm bg-[#111111] border border-[#1E1E1E] rounded-xl p-5 shadow-[0_0_30px_rgba(94,106,210,0.15)] relative overflow-hidden">
+    <div className="w-full max-w-sm bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-2xl p-6 shadow-2xl relative overflow-hidden">
       <div className="flex items-center gap-2 mb-5">
         <span className="text-xl">🎯</span>
         <h4 className="font-semibold text-white text-[15px] tracking-tight">New Match Found</h4>
@@ -28,8 +28,8 @@ const Scene1 = ({ active }) => (
 
 const Scene2 = ({ active }) => (
   <div className={`absolute inset-0 flex flex-col items-center justify-center p-6 transition-all duration-[600ms] ease-out ${active ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5 pointer-events-none'}`}>
-    <div className="w-full max-w-sm bg-[#111111] border border-[#1E1E1E] rounded-xl p-6 shadow-[0_0_30px_rgba(94,106,210,0.15)] text-center relative overflow-hidden">
-      <HiCalendarDays className="w-10 h-10 text-[var(--accent-primary)] mx-auto mb-3" />
+    <div className="w-full max-w-sm bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-2xl p-6 shadow-2xl text-center relative overflow-hidden">
+      <HiCalendar className="w-10 h-10 text-[var(--accent-primary)] mx-auto mb-3" />
       <h4 className="font-semibold text-white text-[15px] mb-1">Session Confirmed</h4>
       <p className="text-xs text-[var(--text-secondary)] mb-5">Saturday 3:00 PM • 1 hour</p>
       
@@ -52,7 +52,7 @@ const Scene2 = ({ active }) => (
 
 const Scene3 = ({ active }) => (
   <div className={`absolute inset-0 flex flex-col items-center justify-center p-6 transition-all duration-[600ms] ease-out ${active ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5 pointer-events-none'}`}>
-    <div className="w-full max-w-sm bg-[#111111] border border-[#1E1E1E] rounded-xl p-8 shadow-[0_0_30px_rgba(94,106,210,0.15)] text-center relative overflow-hidden">
+    <div className="w-full max-w-sm bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-2xl p-8 shadow-2xl text-center relative overflow-hidden">
       
       {/* Subtle Confetti Dots */}
       <div className={`absolute inset-0 transition-opacity duration-1000 ${active ? 'opacity-100' : 'opacity-0'}`}>

@@ -1,60 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { HiLightningBolt, HiEye, HiEyeOff, HiX, HiChevronRight } from 'react-icons/hi';
+import { HiLightningBolt, HiChevronRight } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { useAuth } from '../context/AuthContext';
-import { login as apiLogin, getProfile } from '../api/auth';
+import { getProfile } from '../api/auth';
 import api from '../api/axios';
-import AuthShowcase from '../components/ui/AuthShowcase';
-
-const StyledInput = ({ label, error, type = 'text', id, onChange, ...rest }) => {
-  const [showPassword, setShowPassword] = useState(false);
-  const isPassword = type === 'password';
-  const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
-
-  return (
-    <div className="flex flex-col w-full animate-fade-in shrink-0">
-      {label && (
-        <label htmlFor={id} className="label-premium">
-          {label}
-        </label>
-      )}
-      <div className="relative">
-        <input
-          id={id}
-          type={inputType}
-          onChange={onChange}
-          className={`input-premium ${error ? 'border-red-500 focus:border-red-500' : ''}`}
-          {...rest}
-        />
-        {isPassword && (
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-white transition-colors"
-          >
-            {showPassword ? <HiEyeOff size={20} /> : <HiEye size={20} />}
-          </button>
-        )}
-      </div>
-      {error && (
-        <span className="text-red-500 text-xs mt-1.5 ml-1 flex items-center gap-1 animate-slide-left">
-          <HiX size={12} /> {error}
-        </span>
-      )}
-    </div>
-  );
-};
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
 
 export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const { fieldError, generalError, setApiErrors, clearFieldError, clearAll } = useFormErrors();
+  const { fieldError, generalError, setApiErrors, clearAll } = useFormErrors();
   const [loading, setLoading] = useState(false);
   
-  // Determine initial mode from URL
   const [mode, setMode] = useState(location.pathname === '/register' ? 'register' : 'login');
   const isLogin = mode === 'login';
 
@@ -70,42 +31,29 @@ export default function Auth() {
   const [clientErrors, setClientErrors] = useState({});
 
   useEffect(() => {
-    // Clear errors when switching modes
     setClientErrors({});
     clearAll();
   }, [mode]);
 
   const validate = () => {
     const errs = {};
-    if (!isLogin && !form.name.trim()) errs.name = 'Full name is required';
-    
-    if (!form.email.trim()) {
-      errs.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errs.email = 'Enter a valid email';
-    }
-    
-    if (!form.password) {
-      errs.password = 'Password is required';
-    } else if (form.password.length < 8) {
-      errs.password = 'Min 8 characters';
-    }
+    if (!isLogin && !form.name.trim()) errs.name = 'Please enter your full name.';
+    if (!form.email.trim()) errs.email = 'Please enter your email.';
+    if (!form.password) errs.password = 'Please enter a password.';
+    else if (form.password.length < 8) errs.password = 'Password must be at least 8 characters.';
 
     if (!isLogin) {
-      if (form.password !== form.confirmPassword) {
-        errs.confirmPassword = 'Passwords do not match';
-      }
-      if (!form.city.trim()) errs.city = 'City is required';
-      if (!form.language.trim()) errs.language = 'Language is required';
+      if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords do not match.';
+      if (!form.city.trim()) errs.city = 'Please enter your city.';
+      if (!form.language.trim()) errs.language = 'Please enter your language.';
     }
-    
     return errs;
   };
 
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
     setClientErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
-    clearFieldError(field);
+    clearAll();
   };
 
   const handleSubmit = async (e) => {
@@ -119,40 +67,39 @@ export default function Auth() {
     setLoading(true);
     try {
       if (isLogin) {
-        const res = await apiLogin({ email: form.email, password: form.password });
-        const tokens = res.data;
-        const profileRes = await getProfile();
-        login(tokens, profileRes.data);
-        navigate('/dashboard', { replace: true });
-      } else {
-        const formData = new FormData();
-        formData.append('name', form.name);
-        formData.append('email', form.email);
-        formData.append('password', form.password);
-        formData.append('city', form.city);
-        formData.append('language', form.language);
+        const response = await api.post('/api/v1/auth/login/', {
+          email: form.email,
+          password: form.password,
+        });
+        
+        const tokens = response.data.data;
+        localStorage.setItem('access', tokens.access);
+        localStorage.setItem('refresh', tokens.refresh);
 
-        const res = await register(formData);
-        const tokens = res.data;
-        const profileRes = await getProfile();
-        login(tokens, profileRes.data);
-        toast.success('Welcome to SkillSwap! 🎉');
-        navigate('/dashboard', { replace: true });
+        try {
+          const profileRes = await getProfile();
+          login(tokens, profileRes.data);
+          toast.success('Signed in successfully');
+          navigate('/feed');
+        } catch {
+          login(tokens, { email: form.email, name: 'User' });
+          navigate('/feed');
+        }
+      } else {
+        await api.post('/api/v1/auth/register/', {
+          email: form.email,
+          name: form.name,
+          password: form.password,
+          confirm_password: form.confirmPassword,
+          city: form.city || '',
+          language: form.language || '',
+        });
+        
+        toast.success('Welcome! Please sign in.');
+        setMode('login');
       }
     } catch (err) {
-      if (!err.response) {
-        toast.error('Network error. Please try again.');
-      } else {
-        const errorMsg = err.response.data?.message;
-        if (typeof errorMsg === 'string') {
-          toast.error(errorMsg);
-        } else if (isLogin) {
-          toast.error('Invalid email or password');
-        } else {
-          toast.error('Please check the form for errors');
-        }
-        setApiErrors(err);
-      }
+      setApiErrors(err);
     } finally {
       setLoading(false);
     }
@@ -160,217 +107,123 @@ export default function Auth() {
 
   const fe = (f) => clientErrors[f] || fieldError(f);
 
-  const toggleMode = (newMode) => {
-    if (mode === newMode) return;
-    setMode(newMode);
-    window.history.pushState({}, '', `/${newMode}`);
-  };
-
   return (
-    <div className="h-screen w-full flex bg-[var(--bg-primary)] overflow-hidden">
-      <div className="w-full h-full flex flex-col md:flex-row bg-[var(--bg-secondary)] overflow-hidden">
-        
-        {/* Left Side (Fixed) */}
-        <div className="hidden md:flex flex-col w-5/12 lg:w-[40%] p-12 border-r border-[var(--border-default)] relative bg-[#0D0D0D] shrink-0 h-full">
-          <Link to="/" className="flex items-center gap-3 mb-12 group w-max shrink-0">
-            <div className="w-10 h-10 bg-[var(--accent-primary)] rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
-              <HiLightningBolt className="text-white w-6 h-6" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">SkillSwap</span>
-          </Link>
-          
-          <div className="flex-1 flex flex-col justify-center">
-            <h2 className="text-4xl font-bold text-[var(--text-primary)] mb-6 leading-tight">
-              Exchange skills.<br />Grow together.
-            </h2>
-            <p className="text-[var(--text-secondary)] mb-12 text-lg leading-relaxed">
-              Join the premium community of professionals trading expertise peer-to-peer.
-            </p>
+    <div className="min-h-screen bg-white flex flex-col items-center justify-start py-12 px-6">
+      {/* Brand Header */}
+      <div className="w-full max-w-[1128px] flex items-center mb-10 self-center">
+        <Link to="/" className="flex items-center gap-1 group">
+           <span className="text-[32px] font-bold text-[#0a66c2] tracking-tighter">SkillSwap</span>
+           <div className="w-8 h-8 bg-[#0a66c2] rounded-sm flex items-center justify-center">
+             <HiLightningBolt className="text-white w-6 h-6" />
+           </div>
+        </Link>
+      </div>
 
-            <ul className="space-y-6">
-              <li className="flex items-center gap-4 text-[var(--text-secondary)] font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] ring-4 ring-[var(--accent-primary)]/20"></span>
-                Connect with vetted experts
-              </li>
-              <li className="flex items-center gap-4 text-[var(--text-secondary)] font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] ring-4 ring-[var(--accent-primary)]/20"></span>
-                Learn new skills for free
-              </li>
-              <li className="flex items-center gap-4 text-[var(--text-secondary)] font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] ring-4 ring-[var(--accent-primary)]/20"></span>
-                Build your professional network
-              </li>
-            </ul>
-          </div>
+      <div className="w-full max-w-[400px] animate-fade-in">
+        <div className="bg-white border border-neutral-200 rounded-lg p-6 shadow-md shadow-black/5">
+          <h1 className="text-[32px] font-bold text-black mb-1 leading-tight">
+            {isLogin ? 'Sign in' : 'Join SkillSwap'}
+          </h1>
+          <p className="text-[14px] text-black mb-6">
+            Stay updated on your professional world
+          </p>
 
-          <div className="pt-8 border-t border-[var(--border-default)] shrink-0">
-            <p className="text-sm text-[var(--text-muted)] italic">
-              "SkillSwap changed how our team learns. The quality of peers is unmatched."
-            </p>
-          </div>
-        </div>
-
-        {/* Right Side - Stacked Showcase + Form */}
-        <div className="flex-1 flex flex-col h-full bg-[var(--bg-secondary)] overflow-hidden">
-          
-          {/* Scrollable Container for Right Side */}
-          <div className="flex-1 overflow-y-auto w-full flex flex-col px-8 sm:px-16 py-10 lg:px-24">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <Input
+                label="Full name"
+                placeholder="Required"
+                value={form.name}
+                onChange={handleChange('name')}
+                error={fe('name')}
+              />
+            )}
             
-            {/* Animated UI Showcase */}
-            <AuthShowcase />
+            <Input
+              label="Email"
+              type="email"
+              placeholder="Email address"
+              value={form.email}
+              onChange={handleChange('email')}
+              error={fe('email')}
+            />
 
-            {/* Top Toggle Buttons */}
-            <div className="flex mb-8 border-b border-[var(--border-default)] shrink-0">
-              <button
-                type="button"
-                onClick={() => toggleMode('login')}
-                className={`flex-1 pb-3 text-sm font-medium transition-colors duration-200 ${isLogin ? 'text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleMode('register')}
-                className={`flex-1 pb-3 text-sm font-medium transition-colors duration-200 ${!isLogin ? 'text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-              >
-                Register
-              </button>
-            </div>
+            <Input
+              label="Password (8 or more characters)"
+              type="password"
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange('password')}
+              error={fe('password')}
+            />
 
-            {/* Form Area */}
-            <div className="flex-1 relative shrink-0 min-h-[400px]">
-              <form onSubmit={handleSubmit} noValidate className="relative w-full h-full">
-                <div className="grid">
-                  
-                  {/* Login Form */}
-                  <div className={`col-start-1 row-start-1 w-full space-y-5 transition-all duration-[350ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${isLogin ? 'opacity-100 translate-x-0 z-10 pointer-events-auto visible' : 'opacity-0 -translate-x-8 z-0 pointer-events-none invisible'}`}>
-                    <StyledInput
-                      label="Email Address"
-                      id="login-email"
-                      type="email"
-                      placeholder="name@example.com"
-                      value={form.email}
-                      onChange={handleChange('email')}
-                      error={fe('email')}
-                      autoComplete="email"
-                    />
-
-                    <StyledInput
-                      label="Password"
-                      id="login-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={form.password}
-                      onChange={handleChange('password')}
-                      error={fe('password')}
-                      autoComplete="current-password"
-                    />
-                    
-                    <div className="flex justify-end pb-1">
-                      <Link to="/forgot-password" size="sm" className="text-[13px] text-[var(--accent-primary)] font-medium hover:brightness-110 mb-3 ml-1 transition-all">
-                        Forgot password?
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Register Form */}
-                  <div className={`col-start-1 row-start-1 w-full space-y-5 transition-all duration-[350ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${!isLogin ? 'opacity-100 translate-x-0 z-10 pointer-events-auto visible' : 'opacity-0 translate-x-8 z-0 pointer-events-none invisible'}`}>
-                    <StyledInput
-                      label="Full Name"
-                      id="register-name"
-                      placeholder="John Doe"
-                      value={form.name}
-                      onChange={handleChange('name')}
-                      error={fe('name')}
-                      autoComplete="name"
-                    />
-
-                    <StyledInput
-                      label="Email Address"
-                      id="register-email"
-                      type="email"
-                      placeholder="name@example.com"
-                      value={form.email}
-                      onChange={handleChange('email')}
-                      error={fe('email')}
-                      autoComplete="email"
-                    />
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <StyledInput
-                        label="Password"
-                        id="register-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={form.password}
-                        onChange={handleChange('password')}
-                        error={fe('password')}
-                        autoComplete="new-password"
-                      />
-                      <StyledInput
-                        label="Confirm"
-                        id="register-confirmPassword"
-                        type="password"
-                        placeholder="••••••••"
-                        value={form.confirmPassword}
-                        onChange={handleChange('confirmPassword')}
-                        error={fe('confirmPassword')}
-                        autoComplete="new-password"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-5">
-                      <StyledInput
-                        label="City"
-                        id="register-city"
-                        placeholder="e.g. London"
-                        value={form.city}
-                        onChange={handleChange('city')}
-                        error={fe('city')}
-                      />
-                      <StyledInput
-                        label="Language"
-                        id="register-language"
-                        placeholder="e.g. English"
-                        value={form.language}
-                        onChange={handleChange('language')}
-                        error={fe('language')}
-                      />
-                    </div>
-                  </div>
-                  
+            {!isLogin && (
+              <>
+                <Input
+                  label="Confirm password"
+                  type="password"
+                  placeholder="Repeat password"
+                  value={form.confirmPassword}
+                  onChange={handleChange('confirmPassword')}
+                  error={fe('confirmPassword')}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="City"
+                    placeholder="Location"
+                    value={form.city}
+                    onChange={handleChange('city')}
+                    error={fe('city')}
+                  />
+                  <Input
+                    label="Language"
+                    placeholder="Language"
+                    value={form.language}
+                    onChange={handleChange('language')}
+                    error={fe('language')}
+                  />
                 </div>
+              </>
+            )}
 
-                {generalError && (
-                  <div className="flex items-center gap-3 bg-[rgba(255,68,68,0.1)] border border-[var(--error)] rounded-lg p-4 animate-fade-in mt-5">
-                    <div className="w-8 h-8 rounded-full bg-[var(--error)] flex items-center justify-center shrink-0">
-                      <HiX className="text-white" size={16} />
-                    </div>
-                    <p className="text-sm text-[var(--error)] font-medium">{generalError}</p>
-                  </div>
-                )}
+            {generalError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-[12px] font-bold text-center">
+                {generalError}
+              </div>
+            )}
 
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="btn-primary w-full h-[52px] text-[15px] flex items-center justify-center gap-2 mt-8 absolute bottom-0 left-0 right-0 z-20"
-                  style={{ position: 'relative' }}
-                >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      {isLogin ? 'Sign In' : 'Create Account'}
-                      <HiChevronRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </form>
+            <div className="pt-2">
+              <Button type="submit" fullWidth loading={loading} className="h-[52px] text-lg">
+                {isLogin ? 'Sign in' : 'Agree & Join'}
+              </Button>
             </div>
-            
-          </div>
+          </form>
+
+          {isLogin && (
+            <div className="mt-4 text-center">
+              <Link to="/forgot-password" size="sm" className="text-[#0a66c2] text-[14px] font-bold hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+          )}
         </div>
 
+        <div className="mt-8 text-center">
+          <p className="text-black text-[16px]">
+            {isLogin ? "New to SkillSwap?" : "Already on SkillSwap?"}
+            <button
+              onClick={() => setMode(isLogin ? 'register' : 'login')}
+              className="text-[#0a66c2] font-bold ml-1 hover:underline hover:bg-blue-50 px-2 py-1 rounded-full transition-all"
+            >
+              {isLogin ? 'Join now' : 'Sign in'}
+            </button>
+          </p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-auto pt-12 text-[12px] text-neutral-500 font-medium">
+         SkillSwap Corporation © 2026
       </div>
     </div>
   );
