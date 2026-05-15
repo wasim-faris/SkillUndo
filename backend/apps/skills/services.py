@@ -34,31 +34,35 @@ def get_user_skills(user):
     """
     return UserSkill.objects.select_related('skill').filter(user=user)
 
+from apps.users.models import User
+
 def get_matches_for_user(user):
     """
     Find users whose teach skill match
-    current users learn skills and vice versea
+    current users learn skills and vice versa
     """
     
-    #means what current user want to learn in this one
+    # What current user wants to learn
     user_want = UserSkill.objects.filter(
         user=user,
-        skill_type = 'learn'
+        skill_type='learn'
     ).values_list('skill_id', flat=True)
     
+    # What current user teaches
     user_teaches = UserSkill.objects.filter(
         user=user,
-        skill_type = 'teach'
+        skill_type='teach'
     ).values_list('skill_id', flat=True)
     
-    matched_user = UserSkill.objects.filter(
+    # Find matching Users (not UserSkills)
+    matched_users = User.objects.filter(
         user_skills__skill_id__in=user_want,
-        user_skills___skill_type='teach'
+        user_skills__skill_type='teach'
     ).filter(
-        user_skill__skill_id__in=user_teaches,
+        user_skills__skill_id__in=user_teaches,
         user_skills__skill_type='learn'
     ).exclude(
         id=user.id
-    ).select_related('user__profile').distinct()
+    ).select_related('profile').distinct()
     
-    return matched_user
+    return matched_users
