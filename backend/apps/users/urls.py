@@ -7,6 +7,8 @@ from .views import (
     LogoutView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
+    VerifyOTPView,
+    ResendOTPView,
 )
 
 urlpatterns = [
@@ -21,4 +23,6 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name="rest-password-confirm",
     ),
+    path("verify-otp/", VerifyOTPView.as_view(), name="otp-verify"),
+    path("resend-otp/", ResendOTPView.as_view(), name="resend-otp"),
 ]

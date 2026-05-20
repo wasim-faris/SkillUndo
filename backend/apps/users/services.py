@@ -3,6 +3,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User, Profile, PasswordResetToken
 from django.utils import timezone
 from datetime import timedelta
+import secrets
+from apps.users.models import OTPVerification
 
 
 def register_user(validated_data):
@@ -17,9 +19,11 @@ def register_user(validated_data):
         name=validated_data["name"],
         city=validated_data.get("city", ""),
         language=validated_data.get("language", ""),
+        is_verified=False,
     )
 
     Profile.objects.create(user=user)
+    generate_otp(user)
     return user
 
 
@@ -32,6 +36,9 @@ def login_user(email, password):
     user = authenticate(email=email, password=password)
 
     if not user:
+        return None
+
+    if not user.is_verified:
         return None
 
     return get_tokens_for_user(user)
@@ -105,3 +112,57 @@ def validate_reset_password(token_id, new_password):
     token.user.save()
     token.delete()
     return True
+
+
+def generate_otp(user):
+    """
+    Creates 6 digit OTP and send to email
+    Delete old OTP first
+    """
+
+    # delete old otp if exists
+    OTPVerification.objects.filter(user=user).delete()
+
+    code = code = str(secrets.randbelow(900000) + 100000)
+
+    OTPVerification.objects.create(
+        user=user, code=code, expires_at=timezone.now() + timedelta(minutes=10)
+    )
+
+    print(code)
+
+    return True
+
+
+def verify_otp(user, code):
+    """
+    Checks OTP code.
+    Return True if correct and not expired code.
+    Return None if wrong or Expired
+    """
+
+    try:
+        otp = OTPVerification.objects.get(user=user)
+    except OTPVerification.DoesNotExist:
+        return None
+
+    if otp.expires_at < timezone.now():
+        otp.delete()
+        return None
+
+    if otp.code != code:
+        return None
+
+    user.is_verified = True
+    user.save()
+    otp.delete()
+    return True
+
+
+def resend_otp(user):
+    """
+    Resends OTP to user email.
+    """
+    if user.is_verifed:
+        return None
+    return generate_otp(user)
