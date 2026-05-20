@@ -88,3 +88,12 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         if attrs["new_password"] != attrs["new_confirm_password"]:
             raise serializers.ValidationError({"password": "Password do not match !"})
         return attrs
+
+
+class OTPVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    code = serializers.CharField(required=True, min_length=6, max_length=6)
+
+
+class ResendOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)

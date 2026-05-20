@@ -7,6 +7,8 @@ from .serializers import (
     LogoutSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
+    OTPVerifySerializer,
+    ResendOTPSerializer,
 )
 from rest_framework.views import APIView
 from .services import (
@@ -17,18 +19,22 @@ from .services import (
     logout_user,
     request_reset_token,
     validate_reset_password,
+    verify_otp,
+    resend_otp,
+    get_tokens_for_user,
 )
 from core.responses import success_response, error_response
 from core.permissions import IsOwner
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
+from apps.users.models import User
 
 
+@method_decorator(ratelimit(key="ip", rate="3/m", block=True), name="dispatch")
 class RegisterView(APIView):
 
     permission_classes = [AllowAny]
 
-    @method_decorator(ratelimit(key="ip", rate="3/m", block=True), name="dispatch")
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
@@ -42,11 +48,54 @@ class RegisterView(APIView):
         )
 
 
+@method_decorator(ratelimit(key="ip", rate="5/m", block=True), name="dispatch")
+class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = OTPVerifySerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return error_response(message=serializer.errors, status_code=400)
+        try:
+            user = User.objects.get(email=serializer.validated_data["email"])
+        except User.DoesNotExist:
+            return error_response(message="Invalid credentials", status_code=404)
+        success = verify_otp(user=user, code=serializer.validated_data["code"])
+
+        if not success:
+            return error_response(message="Invalid or expired OTP", status_code=400)
+
+        tokens = get_tokens_for_user(user)
+
+        return success_response(data=tokens, message="Email verified successfully")
+
+
+@method_decorator(ratelimit(key="ip", rate="3/m", block=True), name="dispatch")
+class ResendOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ResendOTPSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(message=serializer.errors, status_code=400)
+
+        try:
+            user = User.objects.get(email=serializer.validated_data["email"])
+        except User.DoesNotExist:
+            return error_response(message="Invalid credentials", status_code=404)
+        if user.is_verified:
+            return error_response(message="Account already Verified", status_code=400)
+
+        resend_otp(user)
+        return success_response(message="OTP send successfully")
+
+
+@method_decorator(ratelimit(key="ip", rate="5/m", block=True), name="dispatch")
 class LoginView(APIView):
 
     permission_classes = [AllowAny]
 
-    @method_decorator(ratelimit(key="ip", rate="5/m", block=True), name="dispatch")
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
