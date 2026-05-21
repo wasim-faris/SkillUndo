@@ -14,6 +14,10 @@ import Profile from './pages/Profile';
 import Skills from './pages/Skills';
 import Matches from './pages/Matches';
 
+import OTPVerification from './pages/OTPVerification';
+import Sessions from './pages/Sessions';
+import Messages from './pages/Messages';
+
 function AnimatedRoutes() {
   const location = useLocation();
   
@@ -35,6 +39,7 @@ function AnimatedRoutes() {
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Auth />} />
             <Route path="/register" element={<Auth />} />
+            <Route path="/verify-otp" element={<OTPVerification />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
           </Route>
@@ -42,10 +47,11 @@ function AnimatedRoutes() {
           {/* Protected Application Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/feed" element={<Feed />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/skills" element={<Skills />} />
             <Route path="/matches" element={<Matches />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/sessions" element={<Sessions />} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/skills" element={<Skills />} />
           </Route>
 
           {/* Catch-all Redirect */}
@@ -64,31 +70,34 @@ export default function App() {
       </BrowserRouter>
 
       <Toaster
-        position="bottom-right"
-        gutter={10}
+        position="top-right"
+        gutter={8}
         toastOptions={{
-          duration: 4000,
+          duration: 4500,
           style: {
             fontFamily: 'Inter, -apple-system, sans-serif',
-            fontSize:   '14px',
+            fontSize:   '13.5px',
             fontWeight: 500,
-            background: '#2f2f2f',
-            color:      '#ececec',
-            border:     '1px solid #3a3a3a',
-            borderLeft: '3px solid #d97757',
-            borderRadius:'10px',
-            padding:    '14px 18px',
-            boxShadow:  '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
+            lineHeight: '1.4',
+            background: 'var(--bg-secondary)',
+            color:      'var(--text-primary)',
+            border:     '1px solid var(--border-default)',
+            borderLeft: '3px solid var(--accent-primary)',
+            borderRadius:'12px',
+            padding:    '13px 16px',
+            boxShadow:  '0 4px 24px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3)',
             minWidth:   '300px',
-            maxWidth:   '420px',
+            maxWidth:   '400px',
           },
           success: {
-            style:    { borderLeft: '3px solid #4caf50' },
-            iconTheme: { primary: '#4caf50', secondary: '#2f2f2f' },
+            duration: 3500,
+            style:    { borderLeft: '3px solid var(--accent-green)' },
+            iconTheme: { primary: 'var(--accent-green)', secondary: 'var(--bg-secondary)' },
           },
           error: {
-            style:    { borderLeft: '3px solid #f44336' },
-            iconTheme: { primary: '#f44336', secondary: '#2f2f2f' },
+            duration: 5000,
+            style:    { borderLeft: '3px solid var(--accent-secondary)' },
+            iconTheme: { primary: 'var(--accent-secondary)', secondary: 'var(--bg-secondary)' },
           },
         }}
       />

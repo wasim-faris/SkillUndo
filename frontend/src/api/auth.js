@@ -6,5 +6,6 @@ export const logout = (refresh) => api.post('/api/v1/auth/logout/', { refresh })
 export const getProfile = () => api.get('/api/v1/auth/me/');
 export const updateProfile = (data) => api.patch('/api/v1/auth/me/update/', data);
 export const forgotPassword = (email) => api.post('/api/v1/auth/password-reset/', { email });
-export const resetPassword = (token, new_password) =>
-  api.post(`/api/v1/auth/password-reset/confirm/${token}/`, { new_password });
+export const resetPassword = (token, new_password, new_confirm_password) =>
+  api.post(`/api/v1/auth/reset-password-confirm/${token}/`, { new_password, new_confirm_password });
+

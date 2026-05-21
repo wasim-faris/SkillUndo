@@ -1,323 +1,507 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useNavigate, useLocation }           from 'react-router-dom';
 import { HiLightningBolt, HiChevronRight, HiArrowRight } from 'react-icons/hi';
-import { motion, AnimatePresence } from 'framer-motion';
-import toast from 'react-hot-toast';
-import { useFormErrors } from '../hooks/useFormErrors';
-import { useAuth } from '../context/AuthContext';
-import { getProfile } from '../api/auth';
-import api from '../api/axios';
-import Input from '../components/ui/Input';
-import Button from '../components/ui/Button';
-import AuthShowcase from '../components/ui/AuthShowcase';
+import { motion, AnimatePresence }                   from 'framer-motion';
+import toast                                         from 'react-hot-toast';
+import { useFormErrors }                             from '../hooks/useFormErrors';
+import { useAuth }                                   from '../context/AuthContext';
+import { getProfile }                                from '../api/auth';
+import api                                           from '../api/axios';
+import Input                                         from '../components/ui/Input';
+import Button                                        from '../components/ui/Button';
+import AuthShowcase                                  from '../components/ui/AuthShowcase';
+
+/* ─── email regex (RFC-5322 lite) ─────────────────────────────── */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Auth() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const { login } = useAuth();
-  const { fieldError, generalError, setApiErrors, clearAll } = useFormErrors();
-  const [loading, setLoading] = useState(false);
-  
-  const [mode, setMode] = useState(location.pathname === '/register' ? 'register' : 'login');
+  const {
+    fieldError, generalError,
+    setApiErrors, setFieldError,
+    clearAll, setGeneralError,
+  } = useFormErrors();
+
+  const [loading, setLoading]           = useState(false);
+  const [mode, setMode]                 = useState(
+    location.pathname === '/register' ? 'register' : 'login'
+  );
   const isLogin = mode === 'login';
 
   const [form, setForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    city: '',
-    language: '',
+    name: '', email: '', password: '', confirmPassword: '',
+    city: '', language: '', bio: '', photo: null,
   });
 
-  const [clientErrors, setClientErrors] = useState({});
+  /* touched tracks which fields the user has interacted with */
+  const [touched,       setTouched]       = useState({});
+  const [clientErrors,  setClientErrors]  = useState({});
+  const [showOptional,  setShowOptional]  = useState(false);
 
+  /* refs for auto-focus on server-side field errors */
+  const emailRef    = useRef(null);
+  const passwordRef = useRef(null);
+  const nameRef     = useRef(null);
+
+  /* reset everything on mode switch */
   useEffect(() => {
     setClientErrors({});
+    setTouched({});
     clearAll();
-  }, [mode]);
+  }, [mode]);                        // eslint-disable-line react-hooks/exhaustive-deps
 
-  const validate = () => {
+  /* ── Real-time per-field validators ─────────────────────────── */
+  const validators = {
+    name:            (v) => (!isLogin && !v.trim() ? 'Full name is required.' : ''),
+    email:           (v) => {
+      if (!v.trim())          return 'Email address is required.';
+      if (!EMAIL_RE.test(v))  return 'Please enter a valid email address.';
+      return '';
+    },
+    password:        (v) => {
+      if (!v)        return 'Password is required.';
+      if (v.length < 8) return 'Password must be at least 8 characters.';
+      return '';
+    },
+    confirmPassword: (v) =>
+      !isLogin && v !== form.password ? 'Passwords do not match.' : '',
+  };
+
+  /* run a single field validator and push result into clientErrors */
+  const validateField = useCallback((field, value) => {
+    const fn  = validators[field];
+    const msg = fn ? fn(value) : '';
+    setClientErrors((prev) => {
+      if (!msg) {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      }
+      return { ...prev, [field]: msg };
+    });
+    return msg;
+  }, [form.password, isLogin]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Handlers ────────────────────────────────────────────────── */
+  const handleChange = (field) => (e) => {
+    const value = e.target.value;
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+    /* clear server-side error for this field immediately */
+    clearAll();
+
+    /* only show inline error if the field was already touched */
+    if (touched[field]) validateField(field, value);
+  };
+
+  const handleBlur = (field) => () => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    validateField(field, form[field] ?? '');
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files?.[0]) setForm((prev) => ({ ...prev, photo: e.target.files[0] }));
+  };
+
+  /* ── Full-form validate on submit ────────────────────────────── */
+  const validateAll = () => {
+    const fields = isLogin
+      ? ['email', 'password']
+      : ['name', 'email', 'password', 'confirmPassword'];
+
     const errs = {};
-    if (!isLogin && !form.name.trim()) errs.name = 'Please enter your full name.';
-    if (!form.email.trim()) errs.email = 'Please enter your email.';
-    if (!form.password) errs.password = 'Please enter a password.';
-    else if (form.password.length < 8) errs.password = 'Password must be at least 8 characters.';
+    fields.forEach((f) => {
+      const msg = validators[f]?.(form[f] ?? '');
+      if (msg) errs[f] = msg;
+    });
 
-    if (!isLogin) {
-      if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords do not match.';
-      if (!form.city.trim()) errs.city = 'Please enter your city.';
-      if (!form.language.trim()) errs.language = 'Please enter your language.';
-    }
+    /* mark all required fields as touched */
+    setTouched(fields.reduce((acc, f) => ({ ...acc, [f]: true }), {}));
+    setClientErrors(errs);
     return errs;
   };
 
-  const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-    setClientErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
-    clearAll();
-  };
-
+  /* ── Submit ──────────────────────────────────────────────────── */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const errs = validate();
+
+    const errs = validateAll();
     if (Object.keys(errs).length > 0) {
-      setClientErrors(errs);
+      /* focus first invalid field */
+      const first = Object.keys(errs)[0];
+      if      (first === 'email')    emailRef.current?.focus();
+      else if (first === 'password') passwordRef.current?.focus();
+      else if (first === 'name')     nameRef.current?.focus();
+
+      toast.error('Please fix the highlighted fields before continuing.', {
+        id: 'validation-error',
+      });
       return;
     }
 
     setLoading(true);
     try {
       if (isLogin) {
+        /* ── Login flow ────────────────────────────────────────── */
         const response = await api.post('/api/v1/auth/login/', {
-          email: form.email,
+          email:    form.email,
           password: form.password,
         });
-        
+
         const tokens = response.data.data;
-        localStorage.setItem('access', tokens.access);
-        localStorage.setItem('refresh', tokens.refresh);
 
         try {
-          const profileRes = await getProfile();
-          login(tokens, profileRes.data);
-          toast.success('Signed in successfully');
-          navigate('/feed');
+          const profileRes  = await getProfile();
+          const profileData = profileRes.data;
+          login(tokens, profileData);
+
+          const firstName = profileData?.name?.split(' ')[0] || 'back';
+          toast.success(`Welcome back, ${firstName}! 👋`, { id: 'login-success' });
         } catch {
+          /* profile fetch failed but tokens are valid — proceed */
           login(tokens, { email: form.email, name: 'User' });
-          navigate('/feed');
+          toast.success('Signed in successfully!', { id: 'login-success' });
         }
+
+        navigate('/feed');
+
       } else {
-        await api.post('/api/v1/auth/register/', {
-          email: form.email,
-          name: form.name,
-          password: form.password,
-          confirm_password: form.confirmPassword,
-          city: form.city || '',
-          language: form.language || '',
+        /* ── Register flow ─────────────────────────────────────── */
+        const formData = new FormData();
+        formData.append('email',            form.email);
+        formData.append('name',             form.name);
+        formData.append('password',         form.password);
+        formData.append('confirm_password', form.confirmPassword);
+        if (form.city)     formData.append('city',     form.city);
+        if (form.language) formData.append('language', form.language);
+        if (form.bio)      formData.append('bio',      form.bio);
+        if (form.photo)    formData.append('photo',    form.photo);
+
+        await api.post('/api/v1/auth/register/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
-        
-        toast.success('Welcome! Please sign in.');
-        setMode('login');
+
+        localStorage.setItem('pending_email', form.email);
+        toast.success('Account created! Please verify your email.', {
+          id: 'register-success',
+        });
+        navigate('/verify-otp');
       }
+
     } catch (err) {
-      setApiErrors(err);
+      if (!err.response) {
+        /* Network error */
+        toast.error('Connection issue. Please check your network and try again.', {
+          id: 'network-error',
+        });
+        return;
+      }
+
+      const result = setApiErrors(err);
+
+      /* Credential errors → targeted field highlighting + focus */
+      if (result?.type === 'credentials') {
+        const lower = (result.raw || '').toLowerCase();
+
+        /* Backend said password is wrong */
+        if (
+          lower.includes('password') ||
+          lower.includes('incorrect') ||
+          lower.includes('wrong')
+        ) {
+          setFieldError('password', 'Incorrect password. Please try again.');
+          setTouched((prev) => ({ ...prev, password: true }));
+          setTimeout(() => passwordRef.current?.focus(), 50);
+          toast.error('Incorrect password. Please try again.', { id: 'pw-error' });
+        } else {
+          /* Default: email not found */
+          setFieldError('email', 'No account found with this email address.');
+          setTouched((prev) => ({ ...prev, email: true }));
+          setTimeout(() => emailRef.current?.focus(), 50);
+          toast.error('No account found with this email address.', { id: 'email-error' });
+        }
+        return;
+      }
+
+      /* Server-validated field errors (e.g. from registration) */
+      if (result?.type === 'field' || result?.fieldErrors) {
+        const fe = result.fieldErrors || {};
+        if (fe.email)    { emailRef.current?.focus();    return; }
+        if (fe.password) { passwordRef.current?.focus(); return; }
+      }
+
+      /* General / rate-limit errors — show inline + toast */
+      if (generalError && generalError !== '__network__') {
+        toast.error(generalError, { id: 'api-error' });
+      } else if (generalError !== '__network__') {
+        toast.error('Unable to sign in. Please try again.', { id: 'api-error' });
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  /* helper: union client + server errors — client side wins */
   const fe = (f) => clientErrors[f] || fieldError(f);
 
+  /* ── Render ──────────────────────────────────────────────────── */
   return (
     <div className="auth-root">
+      <div className="auth-container">
 
-      {/* ══════════════════════════════
-          LEFT PANEL — Form
-      ══════════════════════════════ */}
-      <motion.div
-        initial={{ opacity: 0, x: -24 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="auth-form-panel"
-      >
-        <div className="auth-form-inner">
+        {/* ══════════════════════════════
+            LEFT PANEL — Form
+        ══════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, x: -24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="auth-form-panel custom-scrollbar"
+        >
+          <div className="auth-form-inner py-4">
 
-          {/* Brand */}
-          <Link to="/" className="inline-flex items-center gap-3 mb-10 group">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
-              style={{ background: '#d97757' }}
-            >
-              <HiLightningBolt style={{ color: '#fff', width: 20, height: 20 }} />
-            </div>
-            <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ececec', letterSpacing: '-0.02em' }}>
-              SkillSwap
-            </span>
-          </Link>
-
-          {/* ── Tabs: Login / Register ── */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={mode}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.35 }}
-            >
-              <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.75rem', borderBottom: '1px solid #3a3a3a' }}>
-                {['login', 'register'].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setMode(t)}
-                    style={{
-                      paddingBottom:  '0.875rem',
-                      fontSize:       '0.875rem',
-                      fontWeight:     600,
-                      textTransform:  'capitalize',
-                      letterSpacing:  '0.02em',
-                      background:     'none',
-                      border:         'none',
-                      cursor:         'pointer',
-                      color:          mode === t ? '#d97757' : '#6b6b6b',
-                      position:       'relative',
-                      transition:     'color 0.2s',
-                    }}
-                  >
-                    {t}
-                    {mode === t && (
-                      <motion.div
-                        layoutId="authTab"
-                        style={{
-                          position:   'absolute',
-                          bottom:     0,
-                          left:       0,
-                          right:      0,
-                          height:     '2px',
-                          background: '#d97757',
-                          borderRadius: '2px',
-                        }}
-                      />
-                    )}
-                  </button>
-                ))}
+            {/* Brand */}
+            <Link to="/" className="inline-flex items-center gap-3 mb-10 group">
+              <div
+                className="w-9 h-9 flex items-center justify-center group-hover:scale-110 transition-transform duration-300"
+                style={{ background: 'var(--gradient-1)', borderRadius: '10px' }}
+              >
+                <HiLightningBolt style={{ color: '#fff', width: 20, height: 20 }} />
               </div>
+              <span className="auth-brand-text">SkillSwap</span>
+            </Link>
 
-              <p style={{ color: '#a8a8a8', fontSize: '0.9rem', marginBottom: '1.75rem' }}>
-                {isLogin ? 'Sign in to continue your journey.' : 'Start exchanging skills today.'}
-              </p>
-
-              {/* ── Form fields ── */}
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {!isLogin && (
-                  <Input
-                    label="Full name"
-                    placeholder="Enter your name"
-                    value={form.name}
-                    onChange={handleChange('name')}
-                    error={fe('name')}
-                  />
-                )}
-
-                <Input
-                  label="Email address"
-                  type="email"
-                  placeholder="name@example.com"
-                  value={form.email}
-                  onChange={handleChange('email')}
-                  error={fe('email')}
-                />
-
-                <Input
-                  label="Password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={form.password}
-                  onChange={handleChange('password')}
-                  error={fe('password')}
-                />
-
-                {!isLogin && (
-                  <>
-                    <Input
-                      label="Confirm password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={form.confirmPassword}
-                      onChange={handleChange('confirmPassword')}
-                      error={fe('confirmPassword')}
-                    />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                      <Input
-                        label="City"
-                        placeholder="Your city"
-                        value={form.city}
-                        onChange={handleChange('city')}
-                        error={fe('city')}
-                      />
-                      <Input
-                        label="Language"
-                        placeholder="Native tongue"
-                        value={form.language}
-                        onChange={handleChange('language')}
-                        error={fe('language')}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* General error */}
-                {generalError && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    style={{
-                      padding:      '0.875rem 1rem',
-                      background:   'rgba(244,67,54,0.08)',
-                      border:       '1px solid rgba(244,67,54,0.25)',
-                      borderRadius: '10px',
-                      color:        '#f44336',
-                      fontSize:     '0.8125rem',
-                      fontWeight:   500,
-                      textAlign:    'center',
-                    }}
-                  >
-                    {generalError}
-                  </motion.div>
-                )}
-
-                {/* Submit */}
-                <div style={{ paddingTop: '0.5rem' }}>
-                  <Button type="submit" fullWidth loading={loading} size="lg">
-                    {isLogin ? 'Sign In' : 'Get Started'} <HiArrowRight style={{ marginLeft: 8 }} />
-                  </Button>
+            {/* ── Tabs ── */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="auth-tabs">
+                  {['login', 'register'].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => { setMode(t); setShowOptional(false); }}
+                      className={`auth-tab-btn ${mode === t ? 'active' : ''}`}
+                    >
+                      {t}
+                      {mode === t && (
+                        <motion.div
+                          layoutId="authTab"
+                          style={{
+                            position: 'absolute', bottom: 0, left: 0, right: 0,
+                            height: '2px', background: 'var(--accent-primary)',
+                            borderRadius: '2px',
+                          }}
+                        />
+                      )}
+                    </button>
+                  ))}
                 </div>
-              </form>
 
-              {/* ── Toggle + Forgot ── */}
-              <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p style={{ color: '#6b6b6b', fontSize: '0.8125rem' }}>
-                  {isLogin ? "Don't have an account?" : 'Already have an account?'}
-                  <button
-                    onClick={() => setMode(isLogin ? 'register' : 'login')}
-                    style={{
-                      marginLeft:  '0.4rem',
-                      color:       '#d97757',
-                      fontWeight:  600,
-                      background:  'none',
-                      border:      'none',
-                      cursor:      'pointer',
-                      fontSize:    '0.8125rem',
-                    }}
-                  >
-                    {isLogin ? 'Join now' : 'Sign in'}
-                  </button>
+                <p className="auth-subtitle">
+                  {isLogin ? 'Sign in to continue your journey.' : 'Start exchanging skills today.'}
                 </p>
-                {isLogin && (
-                  <Link
-                    to="/forgot-password"
-                    style={{ color: '#6b6b6b', fontSize: '0.8125rem', transition: 'color 0.2s' }}
-                    onMouseEnter={(e) => e.target.style.color = '#d97757'}
-                    onMouseLeave={(e) => e.target.style.color = '#6b6b6b'}
-                  >
-                    Forgot password?
-                  </Link>
-                )}
-              </div>
-            </motion.div>
-          </AnimatePresence>
 
-          {/* Footer */}
-          <p style={{ marginTop: '2.5rem', color: '#3a3a3a', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>
-            SkillSwap Corporation © 2026 • Crafted for Experts
-          </p>
-        </div>
-      </motion.div>
+                {/* ── Form ── */}
+                <form
+                  onSubmit={handleSubmit}
+                  noValidate
+                  style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+                >
+                  {!isLogin && (
+                    <Input
+                      ref={nameRef}
+                      id="auth-name"
+                      label="Full name"
+                      placeholder="Enter your name"
+                      value={form.name}
+                      onChange={handleChange('name')}
+                      onBlur={handleBlur('name')}
+                      error={fe('name')}
+                      aria-invalid={!!fe('name')}
+                      aria-describedby={fe('name') ? 'auth-name-error' : undefined}
+                      errorId="auth-name-error"
+                      autoComplete="name"
+                    />
+                  )}
 
-      {/* ══════════════════════════════
-          RIGHT PANEL — AuthShowcase
-      ══════════════════════════════ */}
-      <AuthShowcase />
+                  <Input
+                    ref={emailRef}
+                    id="auth-email"
+                    label="Email address"
+                    type="email"
+                    placeholder="name@example.com"
+                    value={form.email}
+                    onChange={handleChange('email')}
+                    onBlur={handleBlur('email')}
+                    error={fe('email')}
+                    aria-invalid={!!fe('email')}
+                    aria-describedby={fe('email') ? 'auth-email-error' : undefined}
+                    errorId="auth-email-error"
+                    autoComplete="email"
+                  />
+
+                  <Input
+                    ref={passwordRef}
+                    id="auth-password"
+                    label="Password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={handleChange('password')}
+                    onBlur={handleBlur('password')}
+                    error={fe('password')}
+                    aria-invalid={!!fe('password')}
+                    aria-describedby={fe('password') ? 'auth-password-error' : undefined}
+                    errorId="auth-password-error"
+                    autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  />
+
+                  {!isLogin && (
+                    <>
+                      <Input
+                        id="auth-confirm-password"
+                        label="Confirm password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={form.confirmPassword}
+                        onChange={handleChange('confirmPassword')}
+                        onBlur={handleBlur('confirmPassword')}
+                        error={fe('confirmPassword')}
+                        aria-invalid={!!fe('confirmPassword')}
+                        aria-describedby={fe('confirmPassword') ? 'auth-confirm-password-error' : undefined}
+                        errorId="auth-confirm-password-error"
+                        autoComplete="new-password"
+                      />
+
+                      <div className="pt-2 border-t border-[var(--border-default)] mt-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowOptional(!showOptional)}
+                          className="flex items-center justify-between w-full text-[var(--text-primary)] text-sm font-semibold hover:text-[var(--accent-primary)] transition-colors"
+                        >
+                          Optional Details (Profile)
+                          <motion.div
+                            animate={{ rotate: showOptional ? 90 : 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <HiChevronRight size={18} />
+                          </motion.div>
+                        </button>
+
+                        <AnimatePresence>
+                          {showOptional && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden mt-4 space-y-4"
+                            >
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                <Input
+                                  label="City"
+                                  placeholder="Your city"
+                                  value={form.city}
+                                  onChange={handleChange('city')}
+                                />
+                                <Input
+                                  label="Language"
+                                  placeholder="Native tongue"
+                                  value={form.language}
+                                  onChange={handleChange('language')}
+                                />
+                              </div>
+                              <Input
+                                label="Short Bio"
+                                placeholder="Tell us about yourself"
+                                value={form.bio}
+                                onChange={handleChange('bio')}
+                              />
+                              <div className="flex flex-col gap-1">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                                  Profile Photo
+                                </label>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleFileChange}
+                                  className="w-full text-sm text-[var(--text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[rgba(124,111,247,0.1)] file:text-[var(--accent-primary)] hover:file:bg-[rgba(124,111,247,0.2)]"
+                                />
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Inline general error (non-field, non-network) */}
+                  <AnimatePresence>
+                    {generalError && generalError !== '__network__' && (
+                      <motion.div
+                        role="alert"
+                        initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0,  scale: 1 }}
+                        exit={{    opacity: 0, y: -4, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="auth-general-error"
+                      >
+                        {generalError}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Submit */}
+                  <div style={{ paddingTop: '0.5rem' }}>
+                    <Button type="submit" fullWidth loading={loading} size="lg" disabled={loading}>
+                      {isLogin ? 'Sign In' : 'Get Started'}
+                      <HiArrowRight className="text-lg transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </Button>
+                  </div>
+                </form>
+
+                {/* ── Toggle + Forgot ── */}
+                <div className="auth-links-row">
+                  <p className="auth-toggle-text">
+                    {isLogin ? "Don't have an account?" : 'Already have an account?'}
+                    <button
+                      type="button"
+                      onClick={() => setMode(isLogin ? 'register' : 'login')}
+                      className="auth-link-btn"
+                    >
+                      {isLogin ? 'Join now' : 'Sign in'}
+                    </button>
+                  </p>
+                  {isLogin && (
+                    <Link to="/forgot-password" className="auth-forgot-link">
+                      Forgot password?
+                    </Link>
+                  )}
+                </div>
+
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Footer */}
+            <p className="auth-footer">
+              SkillSwap Corporation © 2026 • Crafted for Experts
+            </p>
+
+          </div>
+        </motion.div>
+
+        {/* ══════════════════════════════
+            RIGHT PANEL — AuthShowcase
+        ══════════════════════════════ */}
+        <AuthShowcase />
+      </div>
     </div>
   );
 }

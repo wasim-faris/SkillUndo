@@ -18,7 +18,7 @@ export default function BottomNav({ onAddPost }) {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm h-16 glass-dark rounded-full z-50 flex items-center justify-around px-4 shadow-2xl shadow-coffee-500/40">
+    <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm h-16 bg-[var(--bg-card)] border border-[var(--border-default)] backdrop-blur-xl rounded-full z-50 flex items-center justify-around px-4 shadow-2xl">
       {navItems.map((item, idx) => {
         if (item.action) {
           return (
@@ -29,7 +29,7 @@ export default function BottomNav({ onAddPost }) {
               onClick={item.action}
               className="flex flex-col items-center justify-center min-w-[50px]"
             >
-              <item.icon size={32} className="text-coffee-500" />
+              <item.icon size={32} className="text-[var(--accent-primary)]" />
             </motion.button>
           );
         }
@@ -40,9 +40,8 @@ export default function BottomNav({ onAddPost }) {
             to={item.to}
             className={({ isActive }) => `
               relative flex flex-col items-center justify-center min-w-[50px] transition-all duration-300
-              ${isActive ? 'text-coffee-500 scale-110' : 'text-coffee-300'}
+              ${isActive ? 'text-[var(--accent-primary)] scale-110' : 'text-[var(--text-muted)]'}
             `}
-
           >
             <item.icon size={24} />
             <span className="text-[9px] font-black uppercase tracking-tighter mt-0.5">{item.label}</span>
@@ -52,4 +51,5 @@ export default function BottomNav({ onAddPost }) {
     </div>
   );
 }
+
 
