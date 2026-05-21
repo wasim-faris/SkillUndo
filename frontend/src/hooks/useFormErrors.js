@@ -1,52 +1,114 @@
 import { useState, useCallback } from 'react';
 
 /**
- * Parses backend error shapes and distributes to field vs general.
+ * Parses backend error shapes and distributes to field vs general errors.
+ * Maps raw backend strings to professional user-facing messages.
  *
- * Backend error shapes:
- *   Field errors:   { message: { email: ["This field is required."] } }
- *   General errors: { message: "Invalid email or password" }
+ * Backend shapes:
+ *   Field errors:   { message: { email: ["..."], password: ["..."] } }
+ *   General string: { message: "Invalid email or password" }
  *   Rate limit:     HTTP 429
  */
+
+// Maps raw backend strings → professional copy
+const FIELD_MESSAGE_MAP = {
+  // Email-related
+  'no active account found with the given credentials': null, // handled in Auth
+  'user with this email already exists':               'An account with this email already exists.',
+  'enter a valid email address':                       'Please enter a valid email address.',
+  'this field may not be blank':                       'This field is required.',
+  'this field is required':                            'This field is required.',
+  'ensure this field has no more than':                'This value is too long.',
+};
+
+const GENERAL_MESSAGE_MAP = {
+  'no active account found with the given credentials': null, // handled specially
+  'invalid email or password':                          null, // handled specially
+  'email or password is incorrect':                     null, // handled specially
+  'given token not valid for any token type':           'Your session has expired. Please sign in again.',
+  'token is invalid or expired':                        'Your session has expired. Please sign in again.',
+};
+
+function humanize(raw) {
+  if (!raw) return '';
+  const lower = raw.toLowerCase();
+  for (const [key, val] of Object.entries(FIELD_MESSAGE_MAP)) {
+    if (lower.includes(key)) return val ?? raw;
+  }
+  // Capitalize first letter as fallback
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 export function useFormErrors() {
-  const [fieldErrors, setFieldErrors] = useState({});
+  const [fieldErrors, setFieldErrors]   = useState({});
   const [generalError, setGeneralError] = useState('');
 
+  /**
+   * Returns { type: 'email' | 'password' | 'general' | 'network', message }
+   * so Auth.jsx can decide what to highlight / focus.
+   */
   const setApiErrors = useCallback((error) => {
     setFieldErrors({});
     setGeneralError('');
 
-    if (!error.response) {
-      // Network / unknown — caller handles toast
-      return;
+    // Network / no response
+    if (!error?.response) {
+      setGeneralError('__network__');
+      return { type: 'network' };
     }
 
-    const status = error.response.status;
-    const data = error.response.data;
+    const status  = error.response.status;
+    const data    = error.response.data;
+    const message = data?.message ?? data?.detail ?? null;
 
+    // Rate limit
     if (status === 429) {
-      setGeneralError('Too many attempts. Please wait a minute and try again.');
-      return;
+      const msg = 'Too many attempts. Please wait a minute and try again.';
+      setGeneralError(msg);
+      return { type: 'general', message: msg };
     }
 
-    const message = data?.message || data?.detail;
-
+    // No message at all
     if (!message) {
-      setGeneralError('Something went wrong. Please try again.');
-      return;
+      const msg = 'Something went wrong. Please try again.';
+      setGeneralError(msg);
+      return { type: 'general', message: msg };
     }
 
+    // Field-level object: { email: [...], password: [...] }
     if (typeof message === 'object' && !Array.isArray(message)) {
-      // Field-level errors: { field: ["error msg", ...] }
       const parsed = {};
+      let detectedType = 'field';
       Object.entries(message).forEach(([field, msgs]) => {
-        parsed[field] = Array.isArray(msgs) ? msgs[0] : String(msgs);
+        const raw = Array.isArray(msgs) ? msgs[0] : String(msgs);
+        parsed[field] = humanize(raw);
+        detectedType = field; // last key wins for focus hint
       });
       setFieldErrors(parsed);
-    } else {
-      // General string error
-      setGeneralError(String(message));
+      return { type: detectedType, fieldErrors: parsed };
     }
+
+    // General string — check for known credential error patterns
+    const lower = String(message).toLowerCase();
+    const isCredentialError =
+      lower.includes('no active account') ||
+      lower.includes('invalid email or password') ||
+      lower.includes('email or password is incorrect') ||
+      lower.includes('incorrect password') ||
+      lower.includes('wrong password');
+
+    if (isCredentialError) {
+      // Return raw type so Auth.jsx can show targeted field errors
+      return { type: 'credentials', raw: message };
+    }
+
+    const friendly = humanize(String(message));
+    setGeneralError(friendly);
+    return { type: 'general', message: friendly };
+  }, []);
+
+  const setFieldError = useCallback((name, message) => {
+    setFieldErrors((prev) => ({ ...prev, [name]: message }));
   }, []);
 
   const fieldError = useCallback(
@@ -68,5 +130,14 @@ export function useFormErrors() {
     setGeneralError('');
   }, []);
 
-  return { fieldError, generalError, setApiErrors, clearFieldError, clearAll, setGeneralError };
+  return {
+    fieldError,
+    generalError,
+    setApiErrors,
+    setFieldError,
+    clearFieldError,
+    clearAll,
+    setGeneralError,
+    fieldErrors,
+  };
 }

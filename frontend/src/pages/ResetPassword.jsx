@@ -37,7 +37,7 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      await resetPassword(token, form.new_password);
+      await resetPassword(token, form.new_password, form.confirm_password);
       toast.success('Password changed successfully!');
       navigate('/login', { replace: true });
     } catch (err) {

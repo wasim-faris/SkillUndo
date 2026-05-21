@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { HiLightningBolt } from 'react-icons/hi';
+
 
 const particles = [
   { left: '15%', top: '20%', size: 3, delay: 0,   dur: 8  },
@@ -25,7 +27,7 @@ const RTL_CHIPS = [
 
 export default function AuthShowcase() {
   return (
-    <div className="auth-visual-panel">
+    <div className="auth-showcase-panel">
       {/* ── Floating Particles ── */}
       {particles.map((p, i) => (
         <span
@@ -38,64 +40,95 @@ export default function AuthShowcase() {
             height:            p.size,
             animationDelay:    `${p.delay}s`,
             animationDuration: `${p.dur}s`,
+            background:        'var(--accent-primary)',
+            opacity:           0.2,
+            position:          'absolute',
+            borderRadius:      '50%',
           }}
         />
       ))}
 
       {/* ── Skill Exchange Visualizer ── */}
-      <div className="relative z-10 w-full px-10 flex flex-col items-center gap-8">
+      <div className="relative z-10 w-full max-w-[420px] px-10 flex flex-col items-center gap-8">
 
         {/* Row: Avatar + chip track + Avatar */}
-        <div className="flex items-center w-full max-w-sm gap-0">
+        <div className="flex items-center w-full max-w-sm gap-0" style={{ position: 'relative', height: '60px' }}>
 
           {/* Left Avatar */}
-          <div className="auth-avatar auth-avatar-left auth-avatar-pulse">
-            <span className="initials">AR</span>
-            <span className="role">React Dev</span>
+          <div className="flex flex-col items-center z-10 bg-[var(--bg-secondary)] border border-[var(--border-focus)] rounded-xl p-3 shadow-[0_0_15px_rgba(124,111,247,0.2)]">
+            <span className="font-bold text-[var(--text-primary)]">AR</span>
+            <span className="text-[10px] text-[var(--accent-primary)] font-medium">React Dev</span>
           </div>
 
           {/* Chip Track */}
-          <div className="auth-chip-track flex-1">
-            {/* LTR chips: orange (#d97757) */}
+          <div className="flex-1 relative h-[60px] overflow-hidden mx-2">
+            {/* LTR chips: purple */}
             {LTR_CHIPS.map((chip) => (
               <span
                 key={chip.label}
-                className="auth-chip auth-chip-ltr"
-                style={{ animationDelay: chip.delay, left: 0, animationDuration: '3.5s' }}
+                className="absolute bg-[rgba(124,111,247,0.15)] text-[var(--accent-primary)] border border-[rgba(124,111,247,0.3)] px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+                style={{ 
+                  animation: `slideRight 3.5s linear infinite ${chip.delay}`,
+                  left: '-50px',
+                  top: '0',
+                }}
               >
                 {chip.label}
               </span>
             ))}
 
-            {/* RTL chips: blue (#4a9eff) */}
+            {/* RTL chips: coral */}
             {RTL_CHIPS.map((chip) => (
               <span
                 key={chip.label}
-                className="auth-chip auth-chip-rtl"
-                style={{ animationDelay: chip.delay, right: 0, animationDuration: '3.5s' }}
+                className="absolute bg-[rgba(249,112,102,0.15)] text-[var(--accent-secondary)] border border-[rgba(249,112,102,0.3)] px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+                style={{ 
+                  animation: `slideLeft 3.5s linear infinite ${chip.delay}`,
+                  right: '-50px',
+                  bottom: '0',
+                }}
               >
                 {chip.label}
               </span>
             ))}
+            
+            <style>{`
+              @keyframes slideRight {
+                0% { transform: translateX(0); opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { transform: translateX(300px); opacity: 0; }
+              }
+              @keyframes slideLeft {
+                0% { transform: translateX(0); opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { transform: translateX(-300px); opacity: 0; }
+              }
+            `}</style>
           </div>
 
           {/* Right Avatar */}
-          <div className="auth-avatar auth-avatar-right auth-avatar-pulse" style={{ animationDelay: '1s' }}>
-            <span className="initials">MB</span>
-            <span className="role">UX Designer</span>
+          <div className="flex flex-col items-center z-10 bg-[var(--bg-secondary)] border border-[rgba(249,112,102,0.6)] rounded-xl p-3 shadow-[0_0_15px_rgba(249,112,102,0.15)]">
+            <span className="font-bold text-[var(--text-primary)]">MB</span>
+            <span className="text-[10px] text-[var(--accent-secondary)] font-medium">UX Designer</span>
           </div>
         </div>
 
         {/* Divider */}
-        <div className="auth-visual-divider" />
+        <div className="w-full h-[1px] bg-[var(--border-default)] my-4 relative">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--bg-secondary)] px-4">
+            <HiLightningBolt className="text-[var(--text-muted)] w-4 h-4" />
+          </div>
+        </div>
 
         {/* Tagline */}
-        <div className="auth-tagline">
+        <div className="text-center">
           <h2
             style={{
-              fontSize:      '1.6rem',
+              fontSize:      '1.8rem',
               fontWeight:    700,
-              color:         '#ececec',
+              color:         'var(--text-primary)',
               letterSpacing: '-0.02em',
               lineHeight:    1.2,
               marginBottom:  '0.5rem',
@@ -103,10 +136,10 @@ export default function AuthShowcase() {
           >
             Trade Skills.
             <br />
-            <span style={{ color: '#d97757' }}>Grow Together.</span>
+            <span style={{ color: 'var(--accent-primary)' }}>Grow Together.</span>
           </h2>
-          <p style={{ color: '#6b6b6b', fontSize: '0.8rem', marginTop: '0.5rem', letterSpacing: '0.04em' }}>
-            The world's most premium skill exchange community.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.75rem', letterSpacing: '0.04em' }}>
+            The world's most premium skill exchange platform.
           </p>
         </div>
 
@@ -115,12 +148,12 @@ export default function AuthShowcase() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1, duration: 0.8 }}
-          style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}
+          style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1rem' }}
         >
           {[
-            { label: '2,400+ Members', bg: 'rgba(217,119,87,0.1)', border: 'rgba(217,119,87,0.2)', color: '#d97757' },
-            { label: '8,000+ Swaps',   bg: 'rgba(74,158,255,0.1)', border: 'rgba(74,158,255,0.2)', color: '#4a9eff'  },
-            { label: '95% Satisfied',  bg: 'rgba(76,175,80,0.1)',  border: 'rgba(76,175,80,0.2)',  color: '#4caf50'  },
+            { label: '2,400+ Members', bg: 'rgba(124,111,247,0.1)', border: 'rgba(124,111,247,0.2)', color: 'var(--accent-primary)' },
+            { label: '8,000+ Swaps',   bg: 'rgba(249,112,102,0.1)', border: 'rgba(249,112,102,0.2)', color: 'var(--accent-secondary)'  },
+            { label: '95% Satisfied',  bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.2)',  color: 'var(--accent-green)'  },
           ].map((s) => (
             <span
               key={s.label}
@@ -129,7 +162,7 @@ export default function AuthShowcase() {
                 border:       `1px solid ${s.border}`,
                 color:        s.color,
                 borderRadius: '999px',
-                padding:      '0.25rem 0.875rem',
+                padding:      '0.3rem 0.875rem',
                 fontSize:     '0.65rem',
                 fontWeight:   700,
                 letterSpacing:'0.06em',

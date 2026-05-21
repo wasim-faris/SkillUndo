@@ -5,12 +5,7 @@ export default function SkillPill({ name, type = 'teaching', onDelete }) {
 
   return (
     <span 
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
-      style={{
-        background: 'rgba(217, 119, 87, 0.12)',
-        border: '1px solid rgba(217, 119, 87, 0.3)',
-        color: '#d97757',
-      }}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${isTeaching ? 'bg-[rgba(124,111,247,0.12)] border border-[rgba(124,111,247,0.3)] text-[var(--accent-primary)]' : 'bg-[rgba(249,112,102,0.12)] border border-[rgba(249,112,102,0.3)] text-[var(--accent-secondary)]'}`}
     >
       <span>{name}</span>
       {onDelete && (

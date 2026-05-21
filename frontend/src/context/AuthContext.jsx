@@ -3,13 +3,12 @@ import { logout as apiLogout } from '../api/auth';
 
 const AuthContext = createContext(null);
 
-const TOKENS_KEY = 'skillswap_tokens';
 const USER_KEY = 'skillswap_user';
 
 export function AuthProvider({ children }) {
   const [tokens, setTokens] = useState(() => {
-    const access = localStorage.getItem('access');
-    const refresh = localStorage.getItem('refresh');
+    const access = localStorage.getItem('access_token');
+    const refresh = localStorage.getItem('refresh_token');
     return access ? { access, refresh } : null;
   });
 
@@ -32,11 +31,13 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback((tokenData, userData) => {
-    localStorage.setItem('access', tokenData.access);
-    localStorage.setItem('refresh', tokenData.refresh);
-    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    localStorage.setItem('access_token', tokenData.access);
+    localStorage.setItem('refresh_token', tokenData.refresh);
+    if (userData) {
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    }
     setTokens(tokenData);
-    setUser(userData);
+    setUser(userData || null);
   }, []);
 
   const logout = useCallback(async () => {
@@ -47,8 +48,8 @@ export function AuthProvider({ children }) {
     } catch {
       // Ignore logout errors — clear state regardless
     } finally {
-      localStorage.removeItem('access');
-      localStorage.removeItem('refresh');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem(USER_KEY);
       setTokens(null);
       setUser(null);
