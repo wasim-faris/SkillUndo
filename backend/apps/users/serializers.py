@@ -19,6 +19,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             "confirm_password",
             "city",
             "language",
+            "photo",
+            "bio",
         ]
 
     def validate(self, attrs):
