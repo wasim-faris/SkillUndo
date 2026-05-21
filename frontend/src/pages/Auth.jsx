@@ -129,46 +129,44 @@ export default function Auth() {
 
     const errs = validateAll();
     if (Object.keys(errs).length > 0) {
-      /* focus first invalid field */
       const first = Object.keys(errs)[0];
       if      (first === 'email')    emailRef.current?.focus();
       else if (first === 'password') passwordRef.current?.focus();
       else if (first === 'name')     nameRef.current?.focus();
 
-      toast.error('Please fix the highlighted fields before continuing.', {
-        id: 'validation-error',
-      });
+      toast.error('Please fix the highlighted fields.', { id: 'validation-error' });
       return;
     }
 
     setLoading(true);
+    clearAll();
+
     try {
       if (isLogin) {
-        /* ── Login flow ────────────────────────────────────────── */
+        /* ── Login ─────────────────────────────────────────────── */
         const response = await api.post('/api/v1/auth/login/', {
           email:    form.email,
           password: form.password,
         });
 
         const tokens = response.data.data;
+        let firstName = 'back';
 
         try {
           const profileRes  = await getProfile();
-          const profileData = profileRes.data;
+          const profileData = profileRes.data.data;
+          firstName = profileData?.name?.split(' ')[0] || 'back';
           login(tokens, profileData);
-
-          const firstName = profileData?.name?.split(' ')[0] || 'back';
-          toast.success(`Welcome back, ${firstName}! 👋`, { id: 'login-success' });
         } catch {
-          /* profile fetch failed but tokens are valid — proceed */
           login(tokens, { email: form.email, name: 'User' });
-          toast.success('Signed in successfully!', { id: 'login-success' });
         }
 
+        /* Success → toast + navigate (browser may now offer to save password) */
+        toast.success(`Welcome back, ${firstName}! 👋`, { id: 'login-success' });
         navigate('/feed');
 
       } else {
-        /* ── Register flow ─────────────────────────────────────── */
+        /* ── Register ──────────────────────────────────────────── */
         const formData = new FormData();
         formData.append('email',            form.email);
         formData.append('name',             form.name);
@@ -184,60 +182,44 @@ export default function Auth() {
         });
 
         localStorage.setItem('pending_email', form.email);
-        toast.success('Account created! Please verify your email.', {
-          id: 'register-success',
-        });
+        toast.success('Account created! Please verify your email.', { id: 'register-success' });
         navigate('/verify-otp');
       }
 
     } catch (err) {
+      /* ── Network error ───────────────────────────────────────── */
       if (!err.response) {
-        /* Network error */
-        toast.error('Connection issue. Please check your network and try again.', {
-          id: 'network-error',
-        });
+        toast.error('Connection issue. Please check your network and try again.', { id: 'network-error' });
         return;
       }
 
+      /* Parse the API error — returns { type, message?, raw?, fieldErrors? } */
       const result = setApiErrors(err);
 
-      /* Credential errors → targeted field highlighting + focus */
       if (result?.type === 'credentials') {
-        const lower = (result.raw || '').toLowerCase();
+        setFieldError('email', 'Invalid email or password.');
+        setFieldError('password', 'Invalid email or password.');
+        setTouched((prev) => ({ ...prev, email: true, password: true }));
+        setTimeout(() => emailRef.current?.focus(), 60);
+        toast.error('Invalid email or password.', { id: 'auth-error' });
+      } else if (result?.fieldErrors) {
+        /* Server-validated field errors (registration) — find first + toast */
+        const firstField = Object.keys(result.fieldErrors)[0];
+        const firstMsg   = result.fieldErrors[firstField];
+        if (firstField === 'email')    setTimeout(() => emailRef.current?.focus(), 60);
+        if (firstField === 'password') setTimeout(() => passwordRef.current?.focus(), 60);
+        if (firstField === 'name')     setTimeout(() => nameRef.current?.focus(), 60);
+        toast.error(firstMsg || 'Please fix the errors and try again.', { id: 'field-error' });
 
-        /* Backend said password is wrong */
-        if (
-          lower.includes('password') ||
-          lower.includes('incorrect') ||
-          lower.includes('wrong')
-        ) {
-          setFieldError('password', 'Incorrect password. Please try again.');
-          setTouched((prev) => ({ ...prev, password: true }));
-          setTimeout(() => passwordRef.current?.focus(), 50);
-          toast.error('Incorrect password. Please try again.', { id: 'pw-error' });
-        } else {
-          /* Default: email not found */
-          setFieldError('email', 'No account found with this email address.');
-          setTouched((prev) => ({ ...prev, email: true }));
-          setTimeout(() => emailRef.current?.focus(), 50);
-          toast.error('No account found with this email address.', { id: 'email-error' });
-        }
-        return;
-      }
+      } else if (result?.message) {
+        /* General / rate-limit errors — use the message from the return value, NOT React state */
+        toast.error(result.message, { id: 'api-error' });
 
-      /* Server-validated field errors (e.g. from registration) */
-      if (result?.type === 'field' || result?.fieldErrors) {
-        const fe = result.fieldErrors || {};
-        if (fe.email)    { emailRef.current?.focus();    return; }
-        if (fe.password) { passwordRef.current?.focus(); return; }
-      }
-
-      /* General / rate-limit errors — show inline + toast */
-      if (generalError && generalError !== '__network__') {
-        toast.error(generalError, { id: 'api-error' });
-      } else if (generalError !== '__network__') {
+      } else {
+        /* Absolute fallback — should never happen, but guarantees a toast always fires */
         toast.error('Unable to sign in. Please try again.', { id: 'api-error' });
       }
+
     } finally {
       setLoading(false);
     }
@@ -345,7 +327,7 @@ export default function Auth() {
                     aria-invalid={!!fe('email')}
                     aria-describedby={fe('email') ? 'auth-email-error' : undefined}
                     errorId="auth-email-error"
-                    autoComplete="email"
+                    autoComplete="username"
                   />
 
                   <Input

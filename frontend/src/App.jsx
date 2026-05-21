@@ -67,41 +67,46 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <AnimatedRoutes />
+
+        <Toaster
+          position="top-right"
+          gutter={10}
+          containerStyle={{ zIndex: 99999 }}
+          toastOptions={{
+            duration: 4000,
+            style: {
+              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+              fontSize:   '13.5px',
+              fontWeight:  500,
+              lineHeight: '1.5',
+              background: 'rgba(22, 20, 35, 0.92)',
+              backdropFilter: 'blur(16px) saturate(1.6)',
+              WebkitBackdropFilter: 'blur(16px) saturate(1.6)',
+              color:      '#e8e6f0',
+              border:     '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '14px',
+              padding:    '14px 18px',
+              boxShadow:  '0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)',
+              minWidth:   '320px',
+              maxWidth:   '420px',
+            },
+            success: {
+              duration: 3000,
+              style: {
+                borderLeft: '3px solid #34d399',
+              },
+              iconTheme: { primary: '#34d399', secondary: 'rgba(22, 20, 35, 0.92)' },
+            },
+            error: {
+              duration: 5000,
+              style: {
+                borderLeft: '3px solid #f87171',
+              },
+              iconTheme: { primary: '#f87171', secondary: 'rgba(22, 20, 35, 0.92)' },
+            },
+          }}
+        />
       </BrowserRouter>
-
-      <Toaster
-        position="top-right"
-        gutter={8}
-        toastOptions={{
-          duration: 4500,
-          style: {
-            fontFamily: 'Inter, -apple-system, sans-serif',
-            fontSize:   '13.5px',
-            fontWeight: 500,
-            lineHeight: '1.4',
-            background: 'var(--bg-secondary)',
-            color:      'var(--text-primary)',
-            border:     '1px solid var(--border-default)',
-            borderLeft: '3px solid var(--accent-primary)',
-            borderRadius:'12px',
-            padding:    '13px 16px',
-            boxShadow:  '0 4px 24px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3)',
-            minWidth:   '300px',
-            maxWidth:   '400px',
-          },
-          success: {
-            duration: 3500,
-            style:    { borderLeft: '3px solid var(--accent-green)' },
-            iconTheme: { primary: 'var(--accent-green)', secondary: 'var(--bg-secondary)' },
-          },
-          error: {
-            duration: 5000,
-            style:    { borderLeft: '3px solid var(--accent-secondary)' },
-            iconTheme: { primary: 'var(--accent-secondary)', secondary: 'var(--bg-secondary)' },
-          },
-        }}
-      />
-
     </AuthProvider>
   );
 }
