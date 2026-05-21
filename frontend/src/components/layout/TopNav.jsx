@@ -1,12 +1,24 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { HiLightningBolt, HiBell, HiSearch, HiChat } from 'react-icons/hi';
+import { HiLightningBolt, HiBell, HiSearch, HiChat, HiLogout } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
+import toast from 'react-hot-toast';
 
 export default function TopNav() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully.');
+      navigate('/login', { replace: true });
+    } catch (err) {
+      toast.error('Logout failed. Please try again.');
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-[100] h-[72px] flex items-center justify-center px-6"
@@ -69,6 +81,14 @@ export default function TopNav() {
               className="!w-10 !h-10 !rounded-full border-2 border-[var(--accent-primary)]"
             />
           </Link>
+
+          <button
+            onClick={handleLogout}
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-secondary)] border border-[var(--border-default)] hover:border-red-500/30 hover:bg-red-500/10 text-[var(--text-secondary)] hover:text-red-400 transition-all duration-200 active:scale-95 shrink-0"
+            title="Logout"
+          >
+            <HiLogout size={20} />
+          </button>
         </div>
       </div>
     </nav>

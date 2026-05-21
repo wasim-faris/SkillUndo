@@ -65,7 +65,19 @@ export default function OTPVerification() {
       });
 
       const tokens = response.data.data;
-      login(tokens, { email, name: 'User' }); // Save tokens
+
+      // Fetch the actual user profile to get their real name/photo
+      let profileData = { email, name: 'User' };
+      try {
+        localStorage.setItem('access_token', tokens.access);
+        localStorage.setItem('refresh_token', tokens.refresh);
+        const profileRes = await api.get('/api/v1/auth/me/');
+        profileData = profileRes.data.data || profileData;
+      } catch (profileErr) {
+        console.error('Failed to load profile details after OTP verification:', profileErr);
+      }
+
+      login(tokens, profileData);
       localStorage.removeItem('pending_email');
       toast.success('Email verified successfully!');
       navigate('/feed');
