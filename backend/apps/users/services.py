@@ -91,7 +91,7 @@ def request_reset_token(email):
     )
 
     reset_url = (
-        f"http://127.0.0.1:3000/api/v1/auth/reset-password-confirm/{reset_token.token}"
+        f"http://localhost:5173/reset-password-confirm/{reset_token.token}"
     )
     print(reset_url)
 
