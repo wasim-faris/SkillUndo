@@ -1,120 +1,191 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { HiLightningBolt, HiMail, HiChevronLeft } from 'react-icons/hi';
+import { HiArrowLeft, HiArrowRight, HiLightningBolt, HiMail } from 'react-icons/hi';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { forgotPassword } from '../api/auth';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function ForgotPassword() {
-  const { fieldError, generalError, setApiErrors, clearFieldError } = useFormErrors();
+  const emailRef = useRef(null);
+  const {
+    fieldError,
+    generalError,
+    setApiErrors,
+    clearFieldError,
+    clearAll,
+  } = useFormErrors();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [email, setEmail] = useState('');
   const [clientError, setClientError] = useState('');
 
+  const validate = () => {
+    const value = email.trim();
+    if (!value) return 'Email address is required.';
+    if (!EMAIL_RE.test(value)) return 'Please enter a valid email address.';
+    return '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim()) { setClientError('Email is required'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setClientError('Enter a valid email'); return; }
+
+    const error = validate();
+    if (error) {
+      setClientError(error);
+      emailRef.current?.focus();
+      toast.error('Please enter a valid email address.', { id: 'forgot-validation' });
+      return;
+    }
 
     setLoading(true);
+    clearAll();
+
     try {
-      await forgotPassword(email);
+      await forgotPassword(email.trim());
       setSubmitted(true);
+      toast.success('Reset link sent. Check your email or terminal output.', { id: 'forgot-success' });
     } catch (err) {
       if (!err.response) {
-        toast.error('Network error. Please try again.');
+        toast.error('Connection issue. Please check your network and try again.', { id: 'forgot-network' });
       } else {
-        setApiErrors(err);
+        const result = setApiErrors(err);
+        if (result?.fieldErrors?.email) {
+          setTimeout(() => emailRef.current?.focus(), 60);
+        }
+        if (result?.message) {
+          toast.error(result.message, { id: 'forgot-api-error' });
+        }
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const emailError = clientError || fieldError('email');
+
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-[440px]">
-        {/* Logo */}
-        <Link to="/" className="flex items-center justify-center gap-2 mb-10 group">
-          <div className="w-12 h-12 bg-[var(--accent-primary)] rounded-2xl flex items-center justify-center shadow-lg shadow-[rgba(94,106,210,0.2)] group-hover:scale-110 transition-transform duration-300">
-            <HiLightningBolt className="text-white w-7 h-7" />
-          </div>
-          <span className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">SkillSwap</span>
-        </Link>
-
-        <div className="card-premium">
-          {submitted ? (
-            <div className="flex flex-col items-center text-center py-6 gap-6 animate-fade-in">
-              <div className="w-20 h-20 rounded-3xl bg-green-50 flex items-center justify-center shadow-lg shadow-green-100">
-                <HiMail size={40} className="text-green-500" />
+    <div className="auth-root">
+      <div className="auth-container auth-container-compact">
+        <motion.div
+          initial={{ opacity: 0, x: -24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="auth-form-panel auth-form-panel-full"
+        >
+          <div className="auth-form-inner py-4">
+            <Link to="/" className="inline-flex items-center gap-3 mb-10 group">
+              <div
+                className="w-9 h-9 flex items-center justify-center group-hover:scale-110 transition-transform duration-300"
+                style={{ background: 'var(--gradient-1)', borderRadius: '10px' }}
+              >
+                <HiLightningBolt style={{ color: '#fff', width: 20, height: 20 }} />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Check your email</h2>
-                <p className="text-[var(--text-secondary)] font-medium leading-relaxed">
-                  We&apos;ve sent a password reset link to <br/>
-                  <span className="text-[var(--text-primary)] font-bold">{email}</span>
-                </p>
-              </div>
-              <Link to="/login" className="btn-primary w-full flex items-center justify-center gap-2">
-                <HiChevronLeft /> Back to Login
-              </Link>
-            </div>
-          ) : (
-            <>
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Reset password</h1>
-                <p className="text-[var(--text-secondary)] font-medium">
-                  Enter your email address and we&apos;ll send you a link to reset your password.
-                </p>
-              </div>
+              <span className="auth-brand-text">SkillSwap</span>
+            </Link>
 
-              <form onSubmit={handleSubmit} noValidate className="space-y-6">
-                <div className="flex flex-col w-full">
-                  <label htmlFor="email" className="label-premium">
-                    Email Address
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setClientError(''); clearFieldError('email'); }}
-                    className={`input-premium ${clientError || fieldError('email') ? 'border-red-400 focus:border-red-400 focus:ring-red-50' : ''}`}
-                    autoComplete="email"
-                  />
-                  {(clientError || fieldError('email')) && (
-                    <span className="text-red-500 text-xs mt-1.5 ml-1 animate-slide-left">
-                       {clientError || fieldError('email')}
-                    </span>
-                  )}
-                </div>
-
-                {generalError && (
-                  <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-sm text-red-700 font-semibold animate-fade-in">
-                    {generalError}
-                  </div>
-                )}
-
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="btn-primary w-full h-[56px] text-lg flex items-center justify-center gap-2"
+            <AnimatePresence mode="wait">
+              {submitted ? (
+                <motion.div
+                  key="sent"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.3 }}
+                  className="auth-result"
                 >
-                  {loading ? (
-                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : 'Send Reset Link'}
-                </button>
-              </form>
+                  <div className="auth-icon-badge auth-icon-success">
+                    <HiMail size={28} />
+                  </div>
+                  <div>
+                    <h1 className="auth-title">Check your email</h1>
+                    <p className="auth-subtitle auth-subtitle-tight">
+                      If the address exists, a reset link was sent to <strong>{email.trim()}</strong>.
+                    </p>
+                  </div>
 
-              <div className="mt-8 pt-8 border-t border-[var(--border-default)] text-center">
-                <Link to="/login" className="text-[var(--text-secondary)] font-bold hover:text-[var(--accent-primary)] transition-colors flex items-center justify-center gap-2">
-                  <HiChevronLeft /> Back to Login
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
+                  <div className="auth-hint">
+                    In local development, Django may print the link in the backend terminal.
+                    Open that token on the frontend reset page.
+                  </div>
+
+                  <div className="auth-action-stack">
+                    <Button type="button" fullWidth size="lg" onClick={() => setSubmitted(false)}>
+                      Send another link
+                    </Button>
+                    <Link to="/login" className="auth-secondary-link">
+                      <HiArrowLeft /> Back to login
+                    </Link>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="form"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <h1 className="auth-title">Reset password</h1>
+                  <p className="auth-subtitle">
+                    Enter the email for your SkillSwap account and we will send a reset link.
+                  </p>
+
+                  <form onSubmit={handleSubmit} noValidate className="auth-form-stack">
+                    <Input
+                      ref={emailRef}
+                      id="forgot-email"
+                      label="Email address"
+                      type="email"
+                      placeholder="name@example.com"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setClientError('');
+                        clearFieldError('email');
+                      }}
+                      error={emailError}
+                      errorId="forgot-email-error"
+                      autoComplete="email"
+                    />
+
+                    <AnimatePresence>
+                      {generalError && generalError !== '__network__' && (
+                        <motion.div
+                          role="alert"
+                          initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                          transition={{ duration: 0.2 }}
+                          className="auth-general-error"
+                        >
+                          {generalError}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <Button type="submit" fullWidth loading={loading} size="lg" disabled={loading}>
+                      Send reset link
+                      <HiArrowRight className="text-lg transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </Button>
+                  </form>
+
+                  <div className="auth-back-row">
+                    <Link to="/login" className="auth-secondary-link">
+                      <HiArrowLeft /> Back to login
+                    </Link>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <p className="auth-footer">SkillSwap Corporation © 2026 • Crafted for Experts</p>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
