@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 from decouple import config
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -124,6 +125,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+SIMPLE_JWT = dict(ACCESS_TOKEN_LIFETIME=timedelta(days=1), REFRESH_TOKEN_LIFETIME=timedelta(days=7),
+                  ROTATE_REFRESH_TOKENS=True, BLACKLIST_AFTER_ROTATION=True)
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
