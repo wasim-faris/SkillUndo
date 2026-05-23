@@ -4,10 +4,10 @@ export const register    = (data)  => api.post('/api/v1/auth/register/', data);
 export const login       = (data)  => api.post('/api/v1/auth/login/', data);
 export const logout      = (refresh) => api.post('/api/v1/auth/logout/', { refresh });
 
-// Profile — correct endpoints as per backend urls.py
-export const getProfile    = ()     => api.get('/api/v1/auth/profile/');
+// Profile
+export const getProfile    = ()     => api.get('/api/v1/auth/me/');
 export const updateProfile = (data) =>
-  api.patch('/api/v1/auth/profile/update/', data, {
+  api.patch('/api/v1/auth/me/update/', data, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 

@@ -1,44 +1,54 @@
 import { useEffect, useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiPlus, HiSearch, HiLightningBolt, HiRefresh, HiX, HiCheck, HiSparkles, HiChevronRight } from 'react-icons/hi';
+import { HiPlus, HiSearch, HiLightningBolt, HiX, HiCheck, HiSparkles } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import SkillPill from '../components/ui/SkillPill';
 import Button from '../components/ui/Button';
-import { SkeletonLine } from '../components/ui/SkeletonCard';
 import { getAllSkills, getUserSkills, addSkill, deleteSkill } from '../api/skills';
 
 const TABS = ['teaching', 'learning'];
+const unwrap = (response) => response?.data?.data ?? response?.data ?? [];
+const API_SKILL_TYPE = {
+  teaching: 'teach',
+  learning: 'learn',
+};
 
 export default function Skills() {
   const [activeTab, setActiveTab] = useState('teaching');
   const [userSkills, setUserSkills] = useState([]);
   const [allSkills, setAllSkills] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState('');
   const [addingId, setAddingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const [userRes, allRes] = await Promise.all([getUserSkills(), getAllSkills()]);
-      setUserSkills(userRes.data || []);
-      setAllSkills(allRes.data || []);
-    } catch {
-      setError(true);
-      toast.error('Sync failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    let active = true;
 
-  useEffect(() => { fetchData(); }, []);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [userRes, allRes] = await Promise.all([getUserSkills(), getAllSkills()]);
+        if (!active) return;
+        setUserSkills(unwrap(userRes));
+        setAllSkills(unwrap(allRes));
+      } catch {
+        if (active) toast.error('Sync failed');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
 
-  const currentSkills = userSkills.filter((s) => s.skill_type === activeTab);
+    fetchData();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const currentSkills = userSkills.filter((s) => [activeTab, API_SKILL_TYPE[activeTab]].includes(s.skill_type));
   const currentSkillIds = new Set(userSkills.map((s) => s.skill.id));
 
   const filteredGrouped = useMemo(() => {
@@ -71,11 +81,11 @@ export default function Skills() {
     if (currentSkillIds.has(skill.id)) return;
     
     setAddingId(skill.id);
-    const optimistic = { id: `temp-${skill.id}`, skill, skill_type: activeTab };
+    const optimistic = { id: `temp-${skill.id}`, skill, skill_type: API_SKILL_TYPE[activeTab] };
     setUserSkills((p) => [...p, optimistic]);
     try {
-      const res = await addSkill(skill.id, activeTab);
-      setUserSkills((p) => p.map((s) => s.id === optimistic.id ? res.data : s));
+      const res = await addSkill(skill.id, API_SKILL_TYPE[activeTab]);
+      setUserSkills((p) => p.map((s) => s.id === optimistic.id ? unwrap(res) : s));
       toast.success(`${skill.name} added`);
     } catch {
       setUserSkills((p) => p.filter((s) => s.id !== optimistic.id));
@@ -257,5 +267,3 @@ export default function Skills() {
     </AppLayout>
   );
 }
-
-

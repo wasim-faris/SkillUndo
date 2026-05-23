@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   HiPencil, HiLocationMarker, HiGlobe, HiLightningBolt,
-  HiPlus, HiDotsHorizontal, HiChat, HiUserAdd, HiStar,
-  HiRefresh, HiVideoCamera, HiBadgeCheck, HiExternalLink,
-  HiCheck, HiCalendar, HiClock, HiDesktopComputer,
+  HiPlus, HiDotsHorizontal, HiChat, HiUserAdd,
+  HiVideoCamera, HiBadgeCheck,
+  HiCalendar, HiDesktopComputer,
 } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../context/AuthContext';
+import { getProfile } from '../api/auth';
+import { getMatches, getUserSkills } from '../api/skills';
 
 /* ─── MOCK DATA ─── */
 const MOCK = {
@@ -65,6 +67,52 @@ const MOCK = {
     { taught: 'TypeScript', learned: 'Go', partner: 'Elena R.', initials: 'ER', date: 'May 2024', sessions: 2, rating: 4, status: 'Active' },
   ],
 };
+
+const API_BASE_URL = 'http://127.0.0.1:8000';
+
+const unwrap = (response) => response?.data?.data ?? response?.data ?? null;
+const hasValue = (value) => value !== undefined && value !== null && value !== '';
+const pick = (...values) => values.find(hasValue);
+const asArray = (value) => Array.isArray(value) ? value : [];
+const formatCount = (value, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toLocaleString() : fallback;
+};
+const getInitials = (value) =>
+  (value || MOCK.name).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+const getAssetUrl = (url) => {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+const normalizeSkillName = (item) =>
+  item?.skill?.name || item?.name || item?.title || item?.skill_name || item;
+const normalizeTeachSkill = (item) => {
+  const name = normalizeSkillName(item);
+  if (!name) return null;
+  return {
+    name,
+    endorsements: item?.endorsements ?? item?.endorsement_count ?? 0,
+    level: item?.level ?? item?.proficiency ?? 3,
+  };
+};
+const normalizeExperience = (item) => ({
+  title: pick(item?.title, item?.role, item?.position, 'Role'),
+  company: pick(item?.company, item?.organization, item?.employer, 'Company'),
+  type: pick(item?.type, item?.employment_type, 'Full-time'),
+  duration: pick(item?.duration, item?.date_range, [item?.start_date, item?.end_date].filter(Boolean).join(' – '), ''),
+  location: pick(item?.location, item?.city, 'Remote'),
+  description: pick(item?.description, item?.summary, ''),
+  skills: asArray(item?.skills).map(normalizeSkillName).filter(Boolean),
+  initials: pick(item?.initials, getInitials(pick(item?.company, item?.organization, item?.employer, ''))),
+});
+const normalizeEducation = (item) => ({
+  degree: pick(item?.degree, item?.course, item?.field_of_study, 'Degree'),
+  institution: pick(item?.institution, item?.school, item?.university, 'Institution'),
+  years: pick(item?.years, item?.date_range, [item?.start_year, item?.end_year].filter(Boolean).join(' – '), ''),
+  initials: pick(item?.initials, getInitials(pick(item?.institution, item?.school, item?.university, ''))),
+  description: pick(item?.description, ''),
+});
 
 /* ─── SUB-COMPONENTS ─── */
 function Card({ children, className = '' }) {
@@ -131,9 +179,86 @@ function StatusBadge({ status }) {
 
 /* ─── MAIN PAGE ─── */
 export default function Profile() {
-  const { user } = useAuth();
-  const displayName = user?.name || MOCK.name;
-  const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const { user, updateUser } = useAuth();
+  const [profile, setProfile] = useState(user);
+  const [userSkills, setUserSkills] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchProfileData = async () => {
+      setLoadingProfile(true);
+      try {
+        const [profileRes, skillsRes, matchesRes] = await Promise.allSettled([
+          getProfile(),
+          getUserSkills(),
+          getMatches(),
+        ]);
+
+        if (!active) return;
+
+        if (profileRes.status === 'fulfilled') {
+          const profileData = unwrap(profileRes.value);
+          if (profileData) {
+            setProfile(profileData);
+            updateUser?.(profileData);
+          }
+        }
+
+        if (skillsRes.status === 'fulfilled') {
+          setUserSkills(asArray(unwrap(skillsRes.value)));
+        }
+
+        if (matchesRes.status === 'fulfilled') {
+          setMatches(asArray(unwrap(matchesRes.value)));
+        }
+      } finally {
+        if (active) setLoadingProfile(false);
+      }
+    };
+
+    fetchProfileData();
+
+    return () => {
+      active = false;
+    };
+  }, [updateUser]);
+
+  const profileData = profile || user || {};
+  const stats = profileData.profile || {};
+  const displayName = pick(profileData.name, user?.name, MOCK.name);
+  const initials = getInitials(displayName);
+  const photoUrl = getAssetUrl(pick(profileData.photo, user?.photo));
+  const headline = pick(profileData.headline, profileData.title, profileData.language && `${profileData.language} Speaker`, MOCK.headline);
+  const location = pick(profileData.location, profileData.city, MOCK.location);
+  const bio = pick(profileData.bio, MOCK.bio);
+  const teachSkills = useMemo(() => {
+    const dynamic = userSkills
+      .filter((item) => ['teach', 'teaching'].includes(item?.skill_type))
+      .map(normalizeTeachSkill)
+      .filter(Boolean);
+    return dynamic.length ? dynamic : MOCK.teachSkills;
+  }, [userSkills]);
+  const learnSkills = useMemo(() => {
+    const dynamic = userSkills
+      .filter((item) => ['learn', 'learning'].includes(item?.skill_type))
+      .map(normalizeSkillName)
+      .filter(Boolean);
+    return dynamic.length ? dynamic : MOCK.learnSkills;
+  }, [userSkills]);
+  const experience = asArray(profileData.experience).length
+    ? asArray(profileData.experience).map(normalizeExperience)
+    : MOCK.experience;
+  const education = asArray(profileData.education).length
+    ? asArray(profileData.education).map(normalizeEducation)
+    : MOCK.education;
+  const connectionCount = formatCount(pick(profileData.connections_count, profileData.connection_count, profileData.followers_count), MOCK.connections);
+  const matchCount = formatCount(pick(profileData.matches_count, matches.length || null), MOCK.matches);
+  const completedSwaps = formatCount(pick(stats.total_sessions, profileData.posts_count, profileData.activity_count), '12');
+  const avgRating = Number(stats.avg_rating);
+  const ratingLabel = Number.isFinite(avgRating) && avgRating > 0 ? `${avgRating.toFixed(1)}★` : '4.9★';
 
   return (
     <AppLayout>
@@ -150,8 +275,8 @@ export default function Profile() {
             {/* Avatar row */}
             <div className="flex items-end justify-between -mt-14 mb-4 relative z-10">
               <div className="w-28 h-28 rounded-full border-4 border-[var(--bg-card)] bg-[var(--bg-secondary)] flex items-center justify-center overflow-hidden shadow-xl">
-                {user?.photo ? (
-                  <img src={user.photo} alt={displayName} className="w-full h-full object-cover" />
+                {photoUrl ? (
+                  <img src={photoUrl} alt={displayName} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-[var(--gradient-2)] flex items-center justify-center text-white font-black text-3xl">
                     {initials}
@@ -168,19 +293,21 @@ export default function Profile() {
               <h1 className="text-2xl font-extrabold text-[var(--text-primary)]">{displayName}</h1>
               <HiBadgeCheck className="text-[var(--accent-primary)] w-5 h-5" />
             </div>
-            <p className="text-[15px] text-[var(--text-secondary)] mb-3">{MOCK.headline}</p>
+            <p className="text-[15px] text-[var(--text-secondary)] mb-3">
+              {loadingProfile && !profile ? 'Loading profile...' : headline}
+            </p>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--text-muted)] mb-5">
-              <span className="flex items-center gap-1"><HiLocationMarker size={14} /> {MOCK.location}</span>
+              <span className="flex items-center gap-1"><HiLocationMarker size={14} /> {location}</span>
               <span className="text-[var(--border-default)]">·</span>
               <span className="flex items-center gap-1"><HiGlobe size={14} /> Available for Remote Swaps</span>
             </div>
 
             <div className="flex items-center gap-2 text-[13px] mb-6 bg-[var(--bg-secondary)] w-fit px-4 py-2 rounded-xl border border-[var(--border-default)]">
-              <span className="font-bold text-[var(--accent-primary)]">{MOCK.connections}</span>
+              <span className="font-bold text-[var(--accent-primary)]">{connectionCount}</span>
               <span className="text-[var(--text-secondary)]">Connections</span>
               <span className="text-[var(--border-default)]">·</span>
-              <span className="font-bold text-[var(--accent-secondary)]">{MOCK.matches}</span>
+              <span className="font-bold text-[var(--accent-secondary)]">{matchCount}</span>
               <span className="text-[var(--text-secondary)]">Skill Matches</span>
             </div>
 
@@ -206,7 +333,7 @@ export default function Profile() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <Card className="group">
             <CardHeader icon="📝" title="About" action={<EditBtn />} />
-            <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">{MOCK.bio}</p>
+            <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">{bio}</p>
           </Card>
         </motion.div>
 
@@ -219,7 +346,7 @@ export default function Profile() {
               </button>
             } />
             <div className="flex flex-wrap gap-4">
-              {MOCK.teachSkills.map(skill => (
+              {teachSkills.map(skill => (
                 <div key={skill.name} className="flex flex-col items-start bg-[var(--bg-secondary)] border border-[var(--border-default)] p-2 rounded-xl">
                   <div className="flex items-center gap-2 px-2 py-1 text-[var(--text-primary)] text-[13px] font-semibold cursor-default">
                     {skill.name}
@@ -243,7 +370,7 @@ export default function Profile() {
               </button>
             } />
             <div className="flex flex-wrap gap-2">
-              {MOCK.learnSkills.map(skill => (
+              {learnSkills.map(skill => (
                 <span key={skill} className="px-3.5 py-1.5 rounded-full bg-[rgba(249,112,102,0.1)] border border-[rgba(249,112,102,0.3)] text-[var(--accent-secondary)] text-[13px] font-medium hover:bg-[rgba(249,112,102,0.2)] transition-all cursor-default">
                   {skill}
                 </span>
@@ -257,7 +384,7 @@ export default function Profile() {
           <Card>
             <CardHeader icon="💼" title="Experience" action={<AddBtn />} />
             <div className="space-y-0">
-              {MOCK.experience.map((exp, i) => (
+              {experience.map((exp, i) => (
                 <div key={i}>
                   <div className="flex gap-4 group py-2">
                     <div className="w-12 h-12 shrink-0 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--accent-primary)] font-bold text-sm border border-[var(--border-default)]">
@@ -282,7 +409,7 @@ export default function Profile() {
                       </div>
                     </div>
                   </div>
-                  {i < MOCK.experience.length - 1 && <div className="h-px bg-[var(--border-default)] my-4" />}
+                  {i < experience.length - 1 && <div className="h-px bg-[var(--border-default)] my-4" />}
                 </div>
               ))}
             </div>
@@ -294,7 +421,7 @@ export default function Profile() {
           <Card>
             <CardHeader icon="🎓" title="Education" action={<AddBtn />} />
             <div className="space-y-0">
-              {MOCK.education.map((edu, i) => (
+              {education.map((edu, i) => (
                 <div key={i}>
                   <div className="flex gap-4 group py-2">
                     <div className="w-12 h-12 shrink-0 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--accent-secondary)] font-bold text-xs border border-[var(--border-default)]">
@@ -314,7 +441,7 @@ export default function Profile() {
                       )}
                     </div>
                   </div>
-                  {i < MOCK.education.length - 1 && <div className="h-px bg-[var(--border-default)] my-4" />}
+                  {i < education.length - 1 && <div className="h-px bg-[var(--border-default)] my-4" />}
                 </div>
               ))}
             </div>
@@ -329,7 +456,7 @@ export default function Profile() {
 
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              {[['12', 'Swaps Completed'], ['4.9★', 'Avg Rating'], ['8', 'Active Swaps']].map(([val, label]) => (
+              {[[completedSwaps, 'Swaps Completed'], [ratingLabel, 'Avg Rating'], ['8', 'Active Swaps']].map(([val, label]) => (
                 <div key={label} className="rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] p-4 text-center">
                   <p className="text-2xl font-bold text-[var(--accent-primary)]">{val}</p>
                   <p className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium">{label}</p>
