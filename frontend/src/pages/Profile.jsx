@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   HiPencil, HiLocationMarker, HiGlobe, HiLightningBolt,
   HiPlus, HiDotsHorizontal, HiChat, HiUserAdd,
@@ -19,17 +20,6 @@ const MOCK = {
   connections: '2,410',
   matches: 18,
   bio: 'Passionate full-stack developer with 4+ years building scalable web applications. I specialize in React, Node.js, and cloud architecture. Always looking to swap skills — teach what I know, learn what I don\'t.',
-  teachSkills: [
-    { name: 'React', endorsements: 24, level: 5 },
-    { name: 'Next.js', endorsements: 18, level: 4 },
-    { name: 'TypeScript', endorsements: 21, level: 5 },
-    { name: 'Node.js', endorsements: 15, level: 4 },
-    { name: 'PostgreSQL', endorsements: 12, level: 3 },
-    { name: 'REST APIs', endorsements: 19, level: 5 },
-    { name: 'System Design', endorsements: 8, level: 3 },
-    { name: 'Docker', endorsements: 6, level: 3 },
-  ],
-  learnSkills: ['Go', 'Rust', 'Machine Learning', 'UX Design', 'Flutter', 'DevOps/K8s'],
   experience: [
     {
       title: 'Senior Frontend Engineer', company: 'TechCorp Solutions', type: 'Full-time',
@@ -91,9 +81,18 @@ const normalizeTeachSkill = (item) => {
   const name = normalizeSkillName(item);
   if (!name) return null;
   return {
+    id: item?.id || item?.skill?.id || name,
     name,
     endorsements: item?.endorsements ?? item?.endorsement_count ?? 0,
     level: item?.level ?? item?.proficiency ?? 3,
+  };
+};
+const normalizeLearnSkill = (item) => {
+  const name = normalizeSkillName(item);
+  if (!name) return null;
+  return {
+    id: item?.id || item?.skill?.id || name,
+    name,
   };
 };
 const normalizeExperience = (item) => ({
@@ -177,8 +176,85 @@ function StatusBadge({ status }) {
   );
 }
 
+function SkillLoadingState({ variant = 'teach' }) {
+  const widths = variant === 'teach' ? ['w-32', 'w-40', 'w-36'] : ['w-28', 'w-36', 'w-32'];
+
+  return (
+    <div className="flex flex-wrap gap-4">
+      {widths.map((width, index) => (
+        <div key={index} className={`h-12 ${width} bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-xl animate-pulse`} />
+      ))}
+    </div>
+  );
+}
+
+function SkillEmptyState({ message, onAdd, variant = 'teach' }) {
+  const buttonClass = variant === 'learn'
+    ? 'border-[var(--accent-secondary)] text-[var(--accent-secondary)] hover:bg-[rgba(249,112,102,0.1)]'
+    : 'border-[var(--accent-primary)] text-[var(--accent-primary)] hover:bg-[rgba(124,111,247,0.1)]';
+
+  return (
+    <div className="w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-5 py-8 text-center flex flex-col items-center">
+      <p className="text-[var(--text-secondary)] font-medium text-sm mb-4">{message}</p>
+      <button
+        onClick={onAdd}
+        className={`px-3 py-1.5 text-[12px] rounded-lg border font-medium transition-all flex items-center gap-1 ${buttonClass}`}
+      >
+        <HiPlus size={13} /> Add Skill
+      </button>
+    </div>
+  );
+}
+
+function ProfileSkillsSection({ type, skills, loading, onAdd }) {
+  const isLearn = type === 'learn';
+
+  if (loading) {
+    return <SkillLoadingState variant={type} />;
+  }
+
+  if (!skills.length) {
+    return (
+      <SkillEmptyState
+        message={isLearn ? 'No learning skills added yet' : 'No teaching skills added yet'}
+        onAdd={onAdd}
+        variant={type}
+      />
+    );
+  }
+
+  if (isLearn) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {skills.map(skill => (
+          <span key={skill.id} className="px-3.5 py-1.5 rounded-full bg-[rgba(249,112,102,0.1)] border border-[rgba(249,112,102,0.3)] text-[var(--accent-secondary)] text-[13px] font-medium hover:bg-[rgba(249,112,102,0.2)] transition-all cursor-default">
+            {skill.name}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-4">
+      {skills.map(skill => (
+        <div key={skill.id} className="flex flex-col items-start bg-[var(--bg-secondary)] border border-[var(--border-default)] p-2 rounded-xl">
+          <div className="flex items-center gap-2 px-2 py-1 text-[var(--text-primary)] text-[13px] font-semibold cursor-default">
+            {skill.name}
+            <span className="text-[10px] text-[var(--accent-primary)] bg-[rgba(124,111,247,0.1)] px-1.5 py-0.5 rounded-md">✓ {skill.endorsements}</span>
+          </div>
+          <div className="px-2 pb-1">
+            <Dots max={5} filled={skill.level} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ─── MAIN PAGE ─── */
 export default function Profile() {
+  const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState(user);
   const [userSkills, setUserSkills] = useState([]);
@@ -235,19 +311,18 @@ export default function Profile() {
   const location = pick(profileData.location, profileData.city, MOCK.location);
   const bio = pick(profileData.bio, MOCK.bio);
   const teachSkills = useMemo(() => {
-    const dynamic = userSkills
-      .filter((item) => ['teach', 'teaching'].includes(item?.skill_type))
+    return userSkills
+      .filter((item) => item?.skill_type === 'teach')
       .map(normalizeTeachSkill)
       .filter(Boolean);
-    return dynamic.length ? dynamic : MOCK.teachSkills;
   }, [userSkills]);
   const learnSkills = useMemo(() => {
-    const dynamic = userSkills
-      .filter((item) => ['learn', 'learning'].includes(item?.skill_type))
-      .map(normalizeSkillName)
+    return userSkills
+      .filter((item) => item?.skill_type === 'learn')
+      .map(normalizeLearnSkill)
       .filter(Boolean);
-    return dynamic.length ? dynamic : MOCK.learnSkills;
   }, [userSkills]);
+  const openAddSkills = (tab) => navigate(`/skills?tab=${tab}&add=1`);
   const experience = asArray(profileData.experience).length
     ? asArray(profileData.experience).map(normalizeExperience)
     : MOCK.experience;
@@ -341,23 +416,16 @@ export default function Profile() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
           <Card>
             <CardHeader icon="⚡" title="Skills I Can Teach" action={
-              <button className="px-3 py-1.5 text-[12px] rounded-lg border border-[var(--accent-primary)] text-[var(--accent-primary)] font-medium hover:bg-[rgba(124,111,247,0.1)] transition-all flex items-center gap-1">
+              <button onClick={() => openAddSkills('teaching')} className="px-3 py-1.5 text-[12px] rounded-lg border border-[var(--accent-primary)] text-[var(--accent-primary)] font-medium hover:bg-[rgba(124,111,247,0.1)] transition-all flex items-center gap-1">
                 <HiPlus size={13} /> Add Skill
               </button>
             } />
-            <div className="flex flex-wrap gap-4">
-              {teachSkills.map(skill => (
-                <div key={skill.name} className="flex flex-col items-start bg-[var(--bg-secondary)] border border-[var(--border-default)] p-2 rounded-xl">
-                  <div className="flex items-center gap-2 px-2 py-1 text-[var(--text-primary)] text-[13px] font-semibold cursor-default">
-                    {skill.name}
-                    <span className="text-[10px] text-[var(--accent-primary)] bg-[rgba(124,111,247,0.1)] px-1.5 py-0.5 rounded-md">✓ {skill.endorsements}</span>
-                  </div>
-                  <div className="px-2 pb-1">
-                    <Dots max={5} filled={skill.level} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ProfileSkillsSection
+              type="teach"
+              skills={teachSkills}
+              loading={loadingProfile}
+              onAdd={() => openAddSkills('teaching')}
+            />
           </Card>
         </motion.div>
 
@@ -365,17 +433,16 @@ export default function Profile() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
             <CardHeader icon="🎯" title="Skills I Want to Learn" action={
-              <button className="px-3 py-1.5 text-[12px] rounded-lg border border-[var(--accent-secondary)] text-[var(--accent-secondary)] font-medium hover:bg-[rgba(249,112,102,0.1)] transition-all flex items-center gap-1">
+              <button onClick={() => openAddSkills('learning')} className="px-3 py-1.5 text-[12px] rounded-lg border border-[var(--accent-secondary)] text-[var(--accent-secondary)] font-medium hover:bg-[rgba(249,112,102,0.1)] transition-all flex items-center gap-1">
                 <HiPlus size={13} /> Add Skill
               </button>
             } />
-            <div className="flex flex-wrap gap-2">
-              {learnSkills.map(skill => (
-                <span key={skill} className="px-3.5 py-1.5 rounded-full bg-[rgba(249,112,102,0.1)] border border-[rgba(249,112,102,0.3)] text-[var(--accent-secondary)] text-[13px] font-medium hover:bg-[rgba(249,112,102,0.2)] transition-all cursor-default">
-                  {skill}
-                </span>
-              ))}
-            </div>
+            <ProfileSkillsSection
+              type="learn"
+              skills={learnSkills}
+              loading={loadingProfile}
+              onAdd={() => openAddSkills('learning')}
+            />
           </Card>
         </motion.div>
 
