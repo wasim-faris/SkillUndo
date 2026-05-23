@@ -62,14 +62,35 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "email", "name", "city", "language", "photo", "bio", "profile"]
+        fields = [
+            "id",
+            "email",
+            "name",
+            "city",
+            "language",
+            "photo",
+            "bio",
+            "headline",
+            "banner_image",
+            "is_available",
+            "profile",
+        ]
         read_only_fields = ["id", "email"]
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["name", "city", "language", "photo", "bio"]
+        fields = [
+            "name",
+            "city",
+            "language",
+            "photo",
+            "bio",
+            "headline",
+            "banner_image",
+            "is_available",
+        ]
 
 
 class LogoutSerializer(serializers.Serializer):
