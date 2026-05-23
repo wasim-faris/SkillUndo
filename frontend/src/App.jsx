@@ -9,7 +9,6 @@ import Auth from './pages/Auth';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Feed from './pages/Feed';
-import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Skills from './pages/Skills';
 import Matches from './pages/Matches';
@@ -42,6 +41,8 @@ function AnimatedRoutes() {
             <Route path="/verify-otp" element={<OTPVerification />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/reset-password-confirm/:token" element={<ResetPassword />} />
+            <Route path="/api/v1/auth/reset-password-confirm/:token" element={<ResetPassword />} />
           </Route>
 
           {/* Protected Application Routes */}
@@ -110,4 +111,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

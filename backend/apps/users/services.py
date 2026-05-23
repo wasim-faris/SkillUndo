@@ -91,7 +91,7 @@ def request_reset_token(email):
     )
 
     reset_url = (
-        f"http://127.0.0.1:3000/api/v1/auth/reset-password-confirm/{reset_token.token}"
+        f"http://localhost:5173/reset-password-confirm/{reset_token.token}"
     )
     print(reset_url)
 
@@ -107,9 +107,12 @@ def validate_reset_password(token_id, new_password):
     if token.expires_at < timezone.now():
         token.delete()
         return None
-
+    
+    print("NEW PASSWORD:", new_password)
     token.user.set_password(new_password)
+    print("HASH AFTER SET:", token.user.password)
     token.user.save()
+    print("PASSWORD SAVED")
     token.delete()
     return True
 
