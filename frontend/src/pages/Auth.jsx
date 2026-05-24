@@ -252,7 +252,7 @@ export default function Auth() {
               >
                 <HiLightningBolt style={{ color: '#fff', width: 20, height: 20 }} />
               </div>
-              <span className="auth-brand-text">SkillSwap</span>
+              <span className="auth-brand-text">SkillUndo</span>
             </Link>
 
             {/* ── Tabs ── */}
@@ -473,7 +473,7 @@ export default function Auth() {
 
             {/* Footer */}
             <p className="auth-footer">
-              SkillSwap Corporation © 2026 • Crafted for Experts
+              SkillUndo Corporation © 2026 • Crafted for Experts
             </p>
 
           </div>

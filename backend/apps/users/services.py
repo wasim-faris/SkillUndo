@@ -108,6 +108,7 @@ def validate_reset_password(token_id, new_password):
         token.delete()
         return None
     
+    #verify password
     print("NEW PASSWORD:", new_password)
     token.user.set_password(new_password)
     print("HASH AFTER SET:", token.user.password)

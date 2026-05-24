@@ -36,7 +36,7 @@ export default function TopNav() {
               <HiLightningBolt className="text-white w-5 h-5" />
             </motion.div>
             <span className="text-xl font-bold text-[var(--text-primary)] tracking-tight hidden md:block">
-              SkillSwap
+              SkillUndo
             </span>
           </Link>
 

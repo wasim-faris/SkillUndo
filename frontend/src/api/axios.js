@@ -13,6 +13,13 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  if (config.data instanceof FormData) {
+    if (typeof config.headers.setContentType === 'function') {
+      config.headers.setContentType(undefined)
+    }
+    delete config.headers['Content-Type']
+    delete config.headers['content-type']
+  }
   return config
 })
 

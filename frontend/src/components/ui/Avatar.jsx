@@ -1,4 +1,38 @@
+import { useState } from 'react';
+
+const API_BASE_URL = 'http://127.0.0.1:8000';
+const PROFILE_MEDIA_VERSION_KEY = 'skillswap_profile_media_version';
+
+const normalizeMediaPath = (url) => {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith('/')) return url;
+  if (url.startsWith('media/')) return `/${url}`;
+  if (url.startsWith('profile_photos/') || url.startsWith('banners/')) return `/${url}`;
+  return `/media/${url}`;
+};
+
+const getAssetUrl = (url) => {
+  const normalizedUrl = normalizeMediaPath(url);
+  if (!normalizedUrl) return null;
+  if (/^https?:\/\//i.test(normalizedUrl)) return normalizedUrl;
+  if (normalizedUrl.startsWith('/profile_photos/') || normalizedUrl.startsWith('/banners/')) {
+    return normalizedUrl;
+  }
+  return `${API_BASE_URL}${normalizedUrl}`;
+};
+
+const withCacheBust = (url) => {
+  if (!url) return null;
+  const version = localStorage.getItem(PROFILE_MEDIA_VERSION_KEY);
+  if (!version) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}v=${version}`;
+};
+
 export default function Avatar({ firstName = '', lastName = '', src, size = 'md', className = '' }) {
+  const imageSrc = withCacheBust(getAssetUrl(src));
+  const [failedImageSrc, setFailedImageSrc] = useState(null);
+  const imageFailed = imageSrc && failedImageSrc === imageSrc;
   const initials = [firstName?.charAt(0), lastName?.charAt(0)]
     .filter(Boolean)
     .join('')
@@ -15,11 +49,15 @@ export default function Avatar({ firstName = '', lastName = '', src, size = 'md'
 
   const selectedSize = sizes[size] || sizes.md;
 
-  if (src) {
+  if (imageSrc && !imageFailed) {
     return (
       <img
-        src={src}
+        src={imageSrc}
         alt={`${firstName} ${lastName}`}
+        onError={() => {
+          console.warn('[Avatar] Failed to load avatar image:', imageSrc);
+          setFailedImageSrc(imageSrc);
+        }}
         className={`
           rounded-full object-cover shrink-0 border border-[var(--border-default)]
           ${selectedSize}
