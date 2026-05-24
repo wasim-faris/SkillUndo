@@ -120,7 +120,7 @@ export default function ResetPassword() {
               >
                 <HiLightningBolt style={{ color: '#fff', width: 20, height: 20 }} />
               </div>
-              <span className="auth-brand-text">SkillSwap</span>
+              <span className="auth-brand-text">SkillUndo</span>
             </Link>
 
             <AnimatePresence mode="wait">
@@ -139,7 +139,7 @@ export default function ResetPassword() {
                   <div>
                     <h1 className="auth-title">Password updated</h1>
                     <p className="auth-subtitle auth-subtitle-tight">
-                      Your SkillSwap password has been changed. Sign in with the new password.
+                      Your SkillUndo password has been changed. Sign in with the new password.
                     </p>
                   </div>
                   <Button type="button" fullWidth size="lg" onClick={() => navigate('/login', { replace: true })}>
@@ -218,7 +218,7 @@ export default function ResetPassword() {
               )}
             </AnimatePresence>
 
-            <p className="auth-footer">SkillSwap Corporation © 2026 • Crafted for Experts</p>
+            <p className="auth-footer">SkillUndo Corporation © 2026 • Crafted for Experts</p>
           </div>
         </motion.div>
       </div>

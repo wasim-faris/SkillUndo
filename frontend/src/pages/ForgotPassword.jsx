@@ -85,7 +85,7 @@ export default function ForgotPassword() {
               >
                 <HiLightningBolt style={{ color: '#fff', width: 20, height: 20 }} />
               </div>
-              <span className="auth-brand-text">SkillSwap</span>
+              <span className="auth-brand-text">SkillUndo</span>
             </Link>
 
             <AnimatePresence mode="wait">
@@ -132,7 +132,7 @@ export default function ForgotPassword() {
                 >
                   <h1 className="auth-title">Reset password</h1>
                   <p className="auth-subtitle">
-                    Enter the email for your SkillSwap account and we will send a reset link.
+                    Enter the email for your SkillUndo account and we will send a reset link.
                   </p>
 
                   <form onSubmit={handleSubmit} noValidate className="auth-form-stack">
@@ -183,7 +183,7 @@ export default function ForgotPassword() {
               )}
             </AnimatePresence>
 
-            <p className="auth-footer">SkillSwap Corporation © 2026 • Crafted for Experts</p>
+            <p className="auth-footer">SkillUndo Corporation © 2026 • Crafted for Experts</p>
           </div>
         </motion.div>
       </div>

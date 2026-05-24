@@ -25,7 +25,7 @@ export default function PostModal({ isOpen, onClose, onSubmit }) {
       content,
       skills: selectedSkills,
       author: user?.name || 'User',
-      authorRole: 'SkillSwapper',
+      authorRole: 'SkillUndo member',
       time: 'Just now',
       likes: 0,
       comments: 0,

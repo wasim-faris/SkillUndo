@@ -58,11 +58,10 @@ export default function SuggestionsSidebar() {
           ))}
         </div>
         <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--border-default)] uppercase tracking-[0.15em]">
-          <div className="w-5 h-5 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded flex items-center justify-center text-[8px]">SS</div>
-          SkillSwap © 2026
+          <div className="w-5 h-5 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded flex items-center justify-center text-[8px]">SU</div>
+          SkillUndo © 2026
         </div>
       </div>
     </aside>
   );
 }
-

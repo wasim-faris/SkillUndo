@@ -44,7 +44,7 @@ const INITIAL_POSTS = [
     author: 'Rahul D',
     authorRole: 'Full Stack Dev',
     city: 'Mumbai',
-    content: '🎉 Just reached 50 completed sessions on SkillSwap! Thank you to everyone who learned React with me.',
+    content: '🎉 Just reached 50 completed sessions on SkillUndo! Thank you to everyone who learned React with me.',
     time: '1d ago',
     likes: 120,
     comments: 22,

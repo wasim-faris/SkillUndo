@@ -6,10 +6,7 @@ export const logout      = (refresh) => api.post('/api/v1/auth/logout/', { refre
 
 // Profile
 export const getProfile    = ()     => api.get('/api/v1/auth/me/');
-export const updateProfile = (data) =>
-  api.patch('/api/v1/auth/me/update/', data, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+export const updateProfile = (data) => api.patch('/api/v1/auth/me/update/', data);
 
 export const forgotPassword  = (email) => api.post('/api/v1/auth/password-reset/', { email });
 export const resetPassword   = (token, new_password, new_confirm_password) =>

@@ -51,7 +51,7 @@ export default function Sidebar() {
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[var(--accent-primary)]">
               <HiBolt className="text-white" size={24} />
             </div>
-            <span className="font-bold text-[var(--text-primary)] text-xl tracking-tight">SkillSwap</span>
+            <span className="font-bold text-[var(--text-primary)] text-xl tracking-tight">SkillUndo</span>
           </div>
 
           {/* Nav */}

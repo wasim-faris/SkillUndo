@@ -68,7 +68,7 @@ export default function ProfileOverlay({ user, isOpen, onClose }) {
 
               {/* Bio */}
               <p className="mt-6 text-[16px] text-[var(--text-secondary)] leading-relaxed font-medium">
-                {user.bio || `SkillSwapper enthusiast passionate about sharing knowledge. Currently focused on ${user.authorRole || 'collaborative learning'}.`}
+                {user.bio || `SkillUndo member passionate about sharing knowledge. Currently focused on ${user.authorRole || 'collaborative learning'}.`}
               </p>
 
               {/* Stats Bar */}
