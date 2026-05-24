@@ -32,8 +32,8 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     language = models.CharField(max_length=100, blank=True)
     photo = models.ImageField(upload_to="profile_photos/", null=True, blank=True)
     bio = models.TextField(blank=True)
-    headline = models.CharField(max_length=200, blank=True)        # ← add
-    banner_image = models.ImageField(                               # ← add
+    headline = models.CharField(max_length=200, blank=True)
+    banner_image = models.ImageField(
         upload_to="banners/",
         null=True,
         blank=True

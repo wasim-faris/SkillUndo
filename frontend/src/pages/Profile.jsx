@@ -20,6 +20,17 @@ const unwrap = (response) => response?.data?.data ?? response?.data ?? null;
 const hasValue = (value) => value !== undefined && value !== null && value !== '';
 const pick = (...values) => values.find(hasValue);
 const asArray = (value) => Array.isArray(value) ? value : [];
+const toBoolean = (value, fallback = true) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  }
+  return Boolean(value);
+};
 const formatCount = (value, fallback) => {
   const number = Number(value);
   return Number.isFinite(number) ? number.toLocaleString() : fallback;
@@ -296,13 +307,14 @@ function FilePicker({ id, label, file, previewUrl, onChange }) {
 }
 
 function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
+  const initialAvailability = toBoolean(profile?.is_available, true);
   const [form, setForm] = useState(() => ({
     name: profile?.name || '',
     headline: profile?.headline || '',
     city: profile?.city || '',
     language: profile?.language || '',
     bio: profile?.bio || '',
-    is_available: Boolean(profile?.is_available ?? true),
+    is_available: initialAvailability,
   }));
   const [photoFile, setPhotoFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
@@ -329,6 +341,13 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
 
   const updateField = (field) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    if (field === 'is_available') {
+      console.log('[Profile] Availability toggle changed:', {
+        previous: form.is_available,
+        next: value,
+        rawProfileValue: profile?.is_available,
+      });
+    }
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -338,18 +357,46 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
     setSaving(true);
 
     try {
-      const data = new FormData();
-      data.append('name', form.name.trim());
-      data.append('headline', form.headline.trim());
-      data.append('city', form.city.trim());
-      data.append('language', form.language.trim());
-      data.append('bio', form.bio.trim());
-      data.append('is_available', form.is_available ? 'true' : 'false');
-      if (photoFile) data.append('photo', photoFile);
-      if (bannerFile) data.append('banner_image', bannerFile);
+      const textFields = {
+        name: form.name.trim(),
+        headline: form.headline.trim(),
+        city: form.city.trim(),
+        language: form.language.trim(),
+        bio: form.bio.trim(),
+      };
+      const fields = {
+        is_available: Boolean(form.is_available),
+      };
 
-      console.log('FORM DATA:', Object.fromEntries(data.entries()));
-      await onSave(data);
+      Object.entries(textFields).forEach(([key, value]) => {
+        const currentValue = profile?.[key] ?? '';
+        if (key === 'name' && !value) return;
+        if (value !== currentValue) fields[key] = value;
+      });
+
+      console.log('[Profile] Availability before save:', {
+        initial: initialAvailability,
+        current: form.is_available,
+        payloadValue: fields.is_available,
+        payloadType: typeof fields.is_available,
+        rawProfileValue: profile?.is_available,
+      });
+
+      if (photoFile || bannerFile) {
+        const data = new FormData();
+        Object.entries(fields).forEach(([key, value]) => {
+          data.append(key, typeof value === 'boolean' ? String(value) : value);
+        });
+        if (photoFile) data.append('photo', photoFile);
+        if (bannerFile) data.append('banner_image', bannerFile);
+
+        console.log('FORM DATA:', Object.fromEntries(data.entries()));
+        await onSave(data);
+        return;
+      }
+
+      console.log('PROFILE UPDATE PAYLOAD:', fields);
+      await onSave(fields);
     } finally {
       setSaving(false);
     }
@@ -526,7 +573,7 @@ export default function Profile() {
   const completedSwaps = formatCount(pick(stats.total_sessions, profileData.posts_count, profileData.activity_count), '0');
   const avgRating = Number(stats.avg_rating);
   const ratingLabel = Number.isFinite(avgRating) && avgRating > 0 ? `${avgRating.toFixed(1)}★` : '4.9★';
-  const isAvailable = Boolean(profileData.is_available ?? true);
+  const isAvailable = toBoolean(profileData.is_available, true);
   const sessionTypes = asArray(profileData.session_types || profileData.preferred_session_types);
   const weeklyAvailability = pick(profileData.weekly_availability, profileData.availability_note, profileData.schedule_note, '');
   const communicationTools = asArray(profileData.communication_tools || profileData.preferred_tools);
@@ -543,7 +590,8 @@ export default function Profile() {
 
   const handleProfileSave = async (formData) => {
     try {
-      console.log('[Profile] Updating profile with fields:', Array.from(formData.keys()));
+      const payloadFields = formData instanceof FormData ? Array.from(formData.keys()) : Object.keys(formData);
+      console.log('[Profile] Updating profile with fields:', payloadFields);
       const response = await updateProfile(formData);
       console.log('UPDATE RESPONSE:', response.data);
       const updatedProfile = unwrap(response);
@@ -554,6 +602,10 @@ export default function Profile() {
       if (updatedProfile) {
         applyProfile(updatedProfile, nextMediaVersion);
         console.log('[Profile] Profile updated:', updatedProfile);
+        console.log('[Profile] Availability response value:', {
+          raw: updatedProfile?.is_available,
+          parsed: toBoolean(updatedProfile?.is_available, true),
+        });
         console.log('[Profile] Updated media URLs:', {
           profileImage: getProfileImage(updatedProfile),
           bannerImage: getBannerImage(updatedProfile),
@@ -563,6 +615,10 @@ export default function Profile() {
       const freshProfile = await fetchProfileData({ includeRelated: false });
       if (freshProfile) {
         applyProfile(freshProfile, nextMediaVersion);
+        console.log('[Profile] Final availability after refetch:', {
+          raw: freshProfile?.is_available,
+          parsed: toBoolean(freshProfile?.is_available, true),
+        });
         console.log('[Profile] Refetched media URLs:', {
           profileImage: getProfileImage(freshProfile),
           bannerImage: getBannerImage(freshProfile),
@@ -572,7 +628,11 @@ export default function Profile() {
       toast.success('Profile updated');
       setShowEditProfile(false);
     } catch (error) {
-      console.error('[Profile] Update failed:', error?.response?.data || error);
+      console.error('[Profile] Update failed:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        message: error?.message,
+      });
       toast.error('Failed to update profile');
       throw error;
     }
