@@ -1,8 +1,12 @@
+from django.dispatch.dispatcher import receiver
 from rest_framework import serializers
 from .models import SessionRequest, Review, CreditTransaction
 from apps.users.serializers import UserSerializer
 from apps.skills.serializers import SkillSerializer
 from core.constants import MIN_RATING, MAX_RATING
+from apps.skills.models import UserSkill
+from apps.users.models import User
+from django.utils import timezone
 
 
 class SessionRequestSerializer(serializers.ModelSerializer):
@@ -19,6 +23,7 @@ class SessionRequestSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "sender",
+            'receiver',
             "receiver_id",
             "status",
             "proposed_time",
@@ -34,10 +39,63 @@ class SessionRequestSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         request = self.context["request"]
+        user = request.user
+
+        #1. cannot send request to yourself
         if str(attrs["receiver_id"]) == str(request.user.id):
             raise serializers.ValidationError(
                 "you cannot send a session request to yourself"
             )
+        #2. checking receiver exists and active
+        try:
+            receiver = User.objects.get(
+                id=attrs['receiver_id'],
+                is_active = True,
+                is_verified=True
+            )
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                "This user does not exists or is not active"
+            )
+        #3. check receiver is avaialble for swapping skills
+        if not receiver.is_available:
+            raise serializers.ValidationError(
+                "This user is not Available for skill swap right now"
+            )
+        #4. check sender actually teaches the teach_skill
+        sender_teaches = UserSkill.objects.filter(
+            user=user,
+            skill_id=attrs['teach_skill_id'],
+            skill_type='teach'
+        ).exists()
+
+        if not sender_teaches:
+            raise serializers.ValidationError(
+                "You dont teach this skill"
+            )
+        # 5. check receiver actually teaches the learn_skill
+        receiver_teaches = UserSkill.objects.filter(
+            user=receiver,
+            skill_id=attrs['learn_skill_id'],
+            skill_type='teach'
+        ).exists()
+
+        if not receiver_teaches:
+            raise serializers.ValidationError(
+                "This user does not teach the skill you want to learn"
+            )
+
+        pending_exists = SessionRequest.objects.filter(
+            sender=user,
+            receiver=receiver,
+            status='pending'
+        ).exists()
+
+        if pending_exists:
+            raise serializers.ValidationError(
+                "You already have a pendings request with this user"
+            )
+
 
         already_exists = SessionRequest.objects.filter(
             sender=request.user, receiver_id=attrs["receiver_id"], status="pending"
@@ -47,6 +105,30 @@ class SessionRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "You already have a pending request with this user"
             )
+
+        # 7. check no active confirmed session exists between these two
+        confirmed_exists = SessionRequest.objects.filter(
+            sender = user,
+            receiver=receiver,
+            status='confirmed'
+        ).exists() or SessionRequest.objects.filter(
+            sender=receiver,
+            receiver=user,
+            status = 'confirmed'
+        ).exists()
+
+        if confirmed_exists:
+            raise serializers.ValidationError(
+                "You already have an action session with this user"
+            )
+        # 8. check proposed_time is in the future
+        if attrs['proposed_time'] <= timezone.now():
+            raise serializers.ValidationError(
+                "Proposed time must be in the future"
+            )
+
+        # store receiver object so service can use it
+        attrs['receiver'] = receiver
         return attrs
 
 
@@ -60,10 +142,11 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "session",
+            'reviewee',
             "reviewer",
             "reviewee_id",
             "rating",
-            "commet",
+            "comment",
             "created_at",
         ]
         read_only_fields = ["id", "reviewer", "session", "created_at"]

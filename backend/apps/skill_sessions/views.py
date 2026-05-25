@@ -116,7 +116,7 @@ class CancelSessionView(APIView):
 class CompleteSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request, session_id):
+    def patch(self, request,session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
         result = complete_session(session, request.user)
 

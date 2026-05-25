@@ -12,7 +12,7 @@ from core.constants import (
     CREDIT_EXPIRY_DAYS,
 )
 from .models import CreditTransaction
-from django.db.models import F
+from django.db.models import F, Model
 from django.db.models import Avg
 
 
@@ -21,18 +21,15 @@ def send_session_request(sender, validated_data):
     Creates a new session request.
     Return created SessionRequest.
     """
-    receiver_id = validated_data["receiver_id"]
-    teach_skill_id = validated_data["teach_skill_id"]
-    learn_skill_id = validated_data["learn_skill_id"]
-
     session = SessionRequest.objects.create(
-        sender=sender,
-        receiver_id=receiver_id,
-        teach_skill=Skill.objects.get(id=teach_skill_id),
-        learn_skill=Skill.objects.get(id=learn_skill_id),
-        proposed_time=validated_data["proposed_time"],
-        message=validated_data.get("message", ""),
-        status=SESSION_PENDING,
+        sender = sender,
+        receiver=validated_data['receiver'],
+        teach_skill=Skill.objects.get(id=validated_data['teach_skill_id']),
+        learn_skill=Skill.objects.get(id=validated_data['learn_skill_id']),
+        proposed_time=validated_data['proposed_time'],
+        message=validated_data.get('message', ''),
+        statu=SESSION_PENDING
+
     )
 
     return session
@@ -84,7 +81,7 @@ def cancel_session(session, user):
     if user not in [session.sender, session.receiver]:
         return None
 
-    if session.status not in [SESSION_PENDING, SESSION_CONFIRMED]:
+    if session.status != SESSION_CANCELLED:
         return None
 
     session.status = SESSION_CANCELLED
@@ -99,11 +96,11 @@ def complete_session(session, user):
     Awards credits to both users automatically.
     Returns updated session or None.
     """
-
+  
     if user not in [session.sender, session.receiver]:
         return None
 
-    if session.status not in [SESSION_PENDING, SESSION_CONFIRMED]:
+    if session.status != SESSION_COMPLETED:
         return None
 
     session.status = SESSION_COMPLETED
@@ -140,7 +137,7 @@ def update_session_count(user):
     """
     Increments total_sessions count on profile.
     """
-    Profile.objects.get(user=user).update(total_sessions=F("total_sessions") + 1)
+    Profile.objects.filter(user=user).update(total_sessions=F("total_sessions") + 1)
 
 
 def submit_review(session, reviewer, validated_data):
@@ -173,7 +170,7 @@ def update_avg_reting(user):
     """
     Recalculates and saves average rating for a user.
     """
-    avg = Review.objects.filter(reviewee=user).aggregate(Aaverage_rating=Avg("rating"))[
+    avg = Review.objects.filter(reviewee=user).aggregate(average_rating=Avg("rating"))[
         "average_rating"
     ]  # to get the value instead of the key
 
@@ -198,7 +195,7 @@ def get_my_session(user, status=None):
         "sender",
         "sender__profile",
         "receiver",
-        "receiver_profile",
+        "receiver__profile",
         "teach_skill",
         "learn_skill",
     ).order_by("-created_at")
