@@ -19,10 +19,12 @@ def send_session_request(sender, validated_data):
 
     session = SessionRequest.objects.create(
         sender = sender,
+        receiver_id=receiver_id,
         teach_skill=Skill.objects.get(id=teach_skill_id),
         learn_skill = Skill.objects.get(id=learn_skill_id),
         proposed_time=validated_data['proposed_time'],
-        message = validated_data.get('message', '')
+        message = validated_data.get('message', ''),
+        status=SESSION_PENDING
     )
 
     return session
