@@ -90,9 +90,7 @@ def request_reset_token(email):
         user=user, expires_at=timezone.now() + timedelta(hours=1)
     )
 
-    reset_url = (
-        f"http://localhost:5173/reset-password-confirm/{reset_token.token}"
-    )
+    reset_url = f"http://localhost:5173/reset-password-confirm/{reset_token.token}"
     print(reset_url)
 
     return None
@@ -107,8 +105,8 @@ def validate_reset_password(token_id, new_password):
     if token.expires_at < timezone.now():
         token.delete()
         return None
-    
-    #verify password
+
+    # verify password
     print("NEW PASSWORD:", new_password)
     token.user.set_password(new_password)
     print("HASH AFTER SET:", token.user.password)
