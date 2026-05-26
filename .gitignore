@@ -51,3 +51,5 @@ dist/
 .python-version
 
 **/migrations/__pycache__/node_modules/
+backend/profile_photos/
+backend/banners/

@@ -22,14 +22,13 @@ def send_session_request(sender, validated_data):
     Return created SessionRequest.
     """
     session = SessionRequest.objects.create(
-        sender = sender,
+        sender=sender,
         receiver=validated_data['receiver'],
         teach_skill=Skill.objects.get(id=validated_data['teach_skill_id']),
         learn_skill=Skill.objects.get(id=validated_data['learn_skill_id']),
         proposed_time=validated_data['proposed_time'],
         message=validated_data.get('message', ''),
-        statu=SESSION_PENDING
-
+        status=SESSION_PENDING,
     )
 
     return session
@@ -81,7 +80,7 @@ def cancel_session(session, user):
     if user not in [session.sender, session.receiver]:
         return None
 
-    if session.status != SESSION_CANCELLED:
+    if session.status == SESSION_CANCELLED:
         return None
 
     session.status = SESSION_CANCELLED
@@ -100,14 +99,17 @@ def complete_session(session, user):
     if user not in [session.sender, session.receiver]:
         return None
 
-    if session.status != SESSION_COMPLETED:
+    if session.status != SESSION_CONFIRMED:
         return None
 
     session.status = SESSION_COMPLETED
     session.save()
 
     award_credit(session.sender)
+    print(session.sender)
     award_credit(session.receiver)
+    print(award_credit(session.receiver))
+    print(session.receiver)
 
     update_session_count(session.sender)
     update_session_count(session.receiver)

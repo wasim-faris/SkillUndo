@@ -1,13 +1,20 @@
+from django.core.mail import message
+from django.db.models.query import prefetch_related_objects
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from yaml import serializer
 
+from apps.users.models import User
 from .models import SessionRequest
 from .serializers import (
     SessionRequestSerializer,
     ReviewSerializer,
     CreditTransactionSerializer,
 )
+
+from apps.users.serializers import UserSerializer
+from apps.skills.serializers import UserSkillSerializer
 from .services import (
     send_session_request,
     accept_session_request,
@@ -18,6 +25,7 @@ from .services import (
     get_my_session,
     get_session_by_id,
 )
+from apps.skills.services import get_user_skills
 from core.responses import error_response, success_response
 
 
@@ -166,4 +174,45 @@ class CreditHistoryView(APIView):
         serializer = CreditTransactionSerializer(transaction, many=True)
         return success_response(
             data=serializer.data, message="Credit history fected succesfully"
+        )
+
+class PublicProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            user = User.objects.select_related(
+                'profile',
+            ).prefetch_related(
+                'user_skills'
+            ).get(id=user_id)
+            print(user.email)
+            print(user.user_skills.all())
+        except User.DoesNotExist:
+            return error_response(
+                message="User not found",
+                status_code=404
+            )
+        return success_response(
+            data=UserSerializer(user).data,
+            message="Profile Fetched successfully"
+        )
+
+class PublicUserSkillView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return error_response(
+                message="User not found",
+                status_code=404
+            )
+        skills = get_user_skills(user)
+        serializer = UserSkillSerializer(skills, many=True, context={'request': request})
+
+        return success_response(
+            data=serializer.data,
+            message="User Skill fetched successfully"
         )

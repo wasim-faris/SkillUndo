@@ -6,6 +6,7 @@ export const logout      = (refresh) => api.post('/api/v1/auth/logout/', { refre
 
 // Profile
 export const getProfile    = ()     => api.get('/api/v1/auth/me/');
+export const getPublicProfile = (userId) => api.get(`/api/v1/sessions/profile/${userId}/`);
 export const updateProfile = (data) => api.patch('/api/v1/auth/me/update/', data);
 
 export const forgotPassword  = (email) => api.post('/api/v1/auth/password-reset/', { email });
