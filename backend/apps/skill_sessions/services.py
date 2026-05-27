@@ -12,7 +12,7 @@ from core.constants import (
     CREDIT_EXPIRY_DAYS,
 )
 from .models import CreditTransaction
-from django.db.models import F, Model
+from django.db.models import F
 from django.db.models import Avg
 
 
@@ -42,10 +42,10 @@ def accept_session_request(session, user):
     """
 
     if session.receiver != user:
-        return None
+        return None, "Only receiver can accept the session"
 
     if session.status != SESSION_PENDING:
-        return None
+        return None, "Session is not pending"
 
     session.status = SESSION_CONFIRMED
     session.save()
@@ -60,10 +60,10 @@ def decline_session_request(session, user):
     """
 
     if session.receiver != user:
-        return None
+        return None, "Only receiver can decline"
 
     if session.status != SESSION_PENDING:
-        return None
+        return None, "Session is not pending"
 
     session.status = SESSION_CANCELLED
     session.save()
@@ -78,41 +78,68 @@ def cancel_session(session, user):
     """
 
     if user not in [session.sender, session.receiver]:
-        return None
+        return None, "You are not part of this session"
 
     if session.status == SESSION_CANCELLED:
-        return None
+        return None, "Cannot cancel this session"
 
     session.status = SESSION_CANCELLED
     session.save()
     return session
 
+def add_meeting_link(session, user, link):
+    """
+    Only confirmed session participants can add meeting link.
+    """
+    if user not in [session.sender, session.receiver]:
+        return None, "You are not part of this session"
+
+    if session.status != SESSION_CONFIRMED:
+        return None, "Session must be confirmed before adding meeting link"
+
+    session.meeting_link = link
+    session.meeting_link_added_at = timezone.now()
+    session.save()
+
+    return session, None
 
 def complete_session(session, user):
     """
-    Marks session as complete.
-    Both sender and receiver can mark complete.
-    Awards credits to both users automatically.
-    Returns updated session or None.
+    Real world rules:
+    1. Must be after proposed_time
+    2. Must have meeting link
+    3. Both must mark complete separately
+    4. Credits awarded only after both users review
     """
   
     if user not in [session.sender, session.receiver]:
-        return None
+        return None, "You are not part of this session"
 
     if session.status != SESSION_CONFIRMED:
-        return None
+        return None, "Session is not confirmed"
 
-    session.status = SESSION_COMPLETED
+    if timezone.now() < session.proposed_time:
+        return None, "You cannot complete a session before it start"
+
+    if not session.meeting_link:
+        return None, "Please add google Meet link before completing "
+
+    if user == session.sender:
+        if session.completed_by_sender:
+            return None, "You already marked this session complete"
+        session.completed_by_sender = True
+    elif user==session.receiver:
+        if session.completed_by_receiver:
+            return None, "You already marked this session complete"
+        session.completed_by_receiver = True
+
     session.save()
 
-    award_credit(session.sender)
-    print(session.sender)
-    award_credit(session.receiver)
-    print(award_credit(session.receiver))
-    print(session.receiver)
-
-    update_session_count(session.sender)
-    update_session_count(session.receiver)
+    if session.completed_by_sender and session.completed_by_receiver:
+        session.status = SESSION_COMPLETED
+        session.save()
+        update_session_count(session.sender)
+        update_session_count(session.receiver)
 
     return session
 
@@ -150,10 +177,18 @@ def submit_review(session, reviewer, validated_data):
     """
 
     if session.status != SESSION_COMPLETED:
-        return None
+        return None, "session is not completed yet"
 
     if reviewer not in [session.sender, session.receiver]:
-        return None
+        return None, "You are not part of this session"
+
+    already_reviewed = Review.objects.filter(
+        session = session,
+        reviewer=reviewer
+    ).exists()
+
+    if already_reviewed:
+        return None , "You already reviewed this session"
 
     review = Review.objects.create(
         session=session,
@@ -163,12 +198,16 @@ def submit_review(session, reviewer, validated_data):
         comment=validated_data.get("comment", ""),
     )
 
-    update_avg_reting(review.reviewee)
+    update_avg_rating(review.reviewee)
+    #award credits only if BOTH users reviewed
+    review_count= Review.objects.filter(session=session).count()
+    if review_count == 2:
+        award_credit(session.sender)
+        award_credit(session.receiver)
+    return review, None
 
-    return review
 
-
-def update_avg_reting(user):
+def update_avg_rating(user):
     """
     Recalculates and saves average rating for a user.
     """

@@ -116,19 +116,31 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
       });
       toast.success('Review submitted');
       onReviewSubmitted?.(sessionId);
-      onClose();
     } catch (error) {
-      toast.error(formatApiError(error, 'Failed to submit review'));
+      const errMsg = formatApiError(error, 'Failed to submit review');
+      toast.error(errMsg);
+      if (errMsg.toLowerCase().includes('already reviewed')) {
+        onReviewSubmitted?.(sessionId);
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
   const detail = session ? formatDateTime(session.proposed_time) : null;
-  const canReview = session?.status === 'completed' && !reviewed;
+  const isAlreadyReviewed = reviewed || (session?.reviewer_ids && session.reviewer_ids.includes(user?.id));
+
+  const handleOverlayClick = (event) => {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-4 backdrop-blur-sm">
+    <div
+      onClick={handleOverlayClick}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-4 backdrop-blur-sm transition-all duration-300"
+    >
       <motion.div
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -194,45 +206,83 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
                 </div>
               ) : null}
 
-              {canReview ? (
-                <form onSubmit={handleSubmitReview} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3.5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <HiStar size={15} className="text-[var(--accent-yellow)]" />
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-primary)]">Leave Review</h3>
+              {session.status === 'completed' ? (
+                isAlreadyReviewed ? (
+                  <div className="rounded-xl border border-[rgba(52,211,153,0.28)] bg-[rgba(52,211,153,0.06)] p-3.5 flex items-center gap-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(52,211,153,0.12)] text-[var(--accent-green)] shrink-0">
+                      <HiCheck size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-[var(--text-primary)]">Review Submitted</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">You have completed the feedback process for this session.</p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[100px_1fr]">
-                    <label className="block">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Rating</span>
-                      <select
-                        value={form.rating}
-                        onChange={(event) => setForm((prev) => ({ ...prev, rating: event.target.value }))}
-                        className="input-premium mt-1.5 text-xs !py-1"
-                      >
-                        {[5, 4, 3, 2, 1].map((rating) => (
-                          <option key={rating} value={rating}>{rating}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Comment</span>
-                      <textarea
-                        rows={2}
-                        value={form.comment}
-                        onChange={(event) => setForm((prev) => ({ ...prev, comment: event.target.value }))}
-                        className="input-premium mt-1.5 resize-none text-xs !py-2"
-                        placeholder="Share what went well in the session..."
-                      />
-                    </label>
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <button type="submit" disabled={submitting} className="btn-primary !py-1.5 text-xs px-4 disabled:opacity-60 font-bold rounded-lg">
-                      {submitting ? 'Submitting...' : 'Submit Review'}
-                    </button>
-                  </div>
-                </form>
+                ) : (
+                  <form onSubmit={handleSubmitReview} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3.5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <HiStar size={15} className="text-[var(--accent-yellow)]" />
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-primary)]">Leave Review</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[100px_1fr]">
+                      <label className="block">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Rating</span>
+                        <select
+                          value={form.rating}
+                          onChange={(event) => setForm((prev) => ({ ...prev, rating: event.target.value }))}
+                          className="input-premium mt-1.5 text-xs !py-1"
+                        >
+                          {[5, 4, 3, 2, 1].map((rating) => (
+                            <option key={rating} value={rating}>{rating}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Comment</span>
+                        <textarea
+                          rows={2}
+                          value={form.comment}
+                          onChange={(event) => setForm((prev) => ({ ...prev, comment: event.target.value }))}
+                          className="input-premium mt-1.5 resize-none text-xs !py-2"
+                          placeholder="Share what went well in the session..."
+                        />
+                      </label>
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                      <button type="submit" disabled={submitting} className="btn-primary !py-1.5 text-xs px-4 disabled:opacity-60 font-bold rounded-lg">
+                        {submitting ? 'Submitting...' : 'Submit Review'}
+                      </button>
+                    </div>
+                  </form>
+                )
               ) : null}
             </div>
           ) : null}
+        </div>
+
+        <div className="border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-3 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors font-semibold"
+          >
+            ← Back
+          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-ghost !py-1.5 text-xs px-3.5 border border-[var(--border-default)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-card)] rounded-lg font-bold"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-primary !py-1.5 text-xs px-3.5 rounded-lg font-bold"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>

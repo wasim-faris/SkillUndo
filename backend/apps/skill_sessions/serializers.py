@@ -17,6 +17,7 @@ class SessionRequestSerializer(serializers.ModelSerializer):
     teach_skill_id = serializers.UUIDField(write_only=True)
     learn_skill = SkillSerializer(read_only=True)
     learn_skill_id = serializers.UUIDField(write_only=True)
+    reviewer_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = SessionRequest
@@ -32,10 +33,14 @@ class SessionRequestSerializer(serializers.ModelSerializer):
             "teach_skill_id",
             "learn_skill",
             "learn_skill_id",
+            "reviewer_ids",
             "created_at",
         ]
 
         read_only_fields = ["id", "sender", "status", "created_at"]
+
+    def get_reviewer_ids(self, obj):
+        return [str(rid) for rid in obj.reviews.values_list("reviewer_id", flat=True)]
 
     def validate(self, attrs):
         request = self.context["request"]

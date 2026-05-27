@@ -44,7 +44,11 @@ class SessionRequest(BaseModel):
         null=True,
         related_name="learned_sessions",
     )
+    completed_by_sender = models.BooleanField(default=False)
+    completed_by_receiver = models.BooleanField(default=False)
 
+    meeting_link = models.URLField(blank=True, null=True)
+    meeting_link_added_at = models.DateTimeField(null=True, blank=True)
     class Meta:
         db_table = "session_requests"
         ordering = ["-created_at"]
