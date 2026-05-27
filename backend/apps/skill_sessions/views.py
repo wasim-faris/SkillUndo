@@ -1,9 +1,8 @@
-from django.core.mail import message
-from django.db.models.query import prefetch_related_objects
+
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from yaml import serializer
+
 
 from apps.users.models import User
 from .models import SessionRequest
@@ -24,6 +23,7 @@ from .services import (
     submit_review,
     get_my_session,
     get_session_by_id,
+    add_meeting_link,
 )
 from apps.skills.services import get_user_skills
 from core.responses import error_response, success_response
@@ -79,11 +79,11 @@ class AcceptSessionView(APIView):
 
     def patch(self, request, session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
-        result = accept_session_request(session, request.user)
+        result,error = accept_session_request(session, request.user)
 
         if not result:
             return error_response(
-                message="You cannot accept this session", status_code=400
+                message=error, status_code=400
             )
         return success_response(
             data=SessionRequestSerializer(result).data,
@@ -96,10 +96,10 @@ class DeclineSessionView(APIView):
 
     def patch(self, request, session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
-        result = decline_session_request(session, request.user)
+        result,error = decline_session_request(session, request.user)
         if not result:
             return error_response(
-                message="You cannot decline this session", status_code=400
+                message=error, status_code=400
             )
         return success_response(
             data=SessionRequestSerializer(result).data,
@@ -112,11 +112,11 @@ class CancelSessionView(APIView):
 
     def delete(self, request, session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
-        result = cancel_session(session, request.user)
+        result,error = cancel_session(session, request.user)
 
         if not result:
             return error_response(
-                message="You cannot cancel this session", status_code=400
+                message=error, status_code=400
             )
         return success_response(message="Session cancelled successfully")
 
@@ -126,11 +126,11 @@ class CompleteSessionView(APIView):
 
     def patch(self, request,session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
-        result = complete_session(session, request.user)
+        result,error = complete_session(session, request.user)
 
         if not result:
             return error_response(
-                message="You cannot complete this session", status_code=400
+                message=error, status_code=400
             )
         return success_response(
             data=SessionRequestSerializer(result).data,
@@ -148,7 +148,7 @@ class SubmitReviewView(APIView):
         )
         if not serializer.is_valid():
             return error_response(message=serializer.errors, status_code=400)
-        review = submit_review(
+        review,error = submit_review(
             session=session,
             reviewer=request.user,
             validated_data=serializer.validated_data,
@@ -156,12 +156,12 @@ class SubmitReviewView(APIView):
 
         if not review:
             return error_response(
-                message="You cannot review this session", status_code=400
+                message=error, status_code=400
             )
 
         return success_response(
             data=ReviewSerializer(review).data,
-            message="Review submitted succesfully",
+            message="Review submitted successfully",
             status_code=201,
         )
 
@@ -215,4 +215,28 @@ class PublicUserSkillView(APIView):
         return success_response(
             data=serializer.data,
             message="User Skill fetched successfully"
+        )
+
+class AddMeetingLinkView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, session_id):
+        session = get_object_or_404(SessionRequest, id=session_id)
+        link = request.data.get("meeting_link", "")
+
+        if not link:
+            return error_response(
+                message="Meeting link is required",
+                status_code=400
+            )
+        result,error = add_meeting_link(session, request.user, link)
+
+        if not result:
+            return error_response(
+                message=error,
+                status_code=400
+            )
+        return success_response(
+            data=SessionRequestSerializer(result).data,
+            message="Meeting link added successfully",
         )
