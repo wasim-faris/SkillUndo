@@ -28,3 +28,7 @@ export const submitSessionReview = (sessionId, payload) =>
 
 export const getCreditHistory = () =>
   api.get('/api/v1/sessions/credits/');
+
+export const addMeetingLink = (sessionId, meetingLink) =>
+  api.patch(`/api/v1/sessions/${sessionId}/meeting-link/`, { meeting_link: meetingLink });
+

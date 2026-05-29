@@ -10,9 +10,8 @@ from .views import (
     VerifyOTPView,
     ResendOTPView,
     PublicProfileView,
-    PublicUserSkillView
+    PublicUserSkillView,
 )
-
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
@@ -28,8 +27,6 @@ urlpatterns = [
     ),
     path("verify-otp/", VerifyOTPView.as_view(), name="otp-verify"),
     path("resend-otp/", ResendOTPView.as_view(), name="resend-otp"),
-
     path("profile/<uuid:user_id>/", PublicProfileView.as_view(), name="public-profile"),
     path("user/<uuid:user_id>/", PublicUserSkillView.as_view()),
-
 ]

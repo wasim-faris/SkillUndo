@@ -9,8 +9,7 @@ from .views import (
     CompleteSessionView,
     SubmitReviewView,
     CreditHistoryView,
-    PublicProfileView,
-    PublicUserSkillView
+    AddMeetingLinkView,
 )
 
 urlpatterns = [
@@ -28,6 +27,7 @@ urlpatterns = [
     path(
         "<uuid:session_id>/cancel/", CancelSessionView.as_view(), name="cancel-session"
     ),
+    path("<uuid:session_id>/meeting-link/", AddMeetingLinkView.as_view()),
     path(
         "<uuid:session_id>/complete/",
         CompleteSessionView.as_view(),
@@ -35,4 +35,4 @@ urlpatterns = [
     ),
     path("<uuid:session_id>/review/", SubmitReviewView.as_view(), name="submit-review"),
     path("credits/", CreditHistoryView.as_view(), name="credit-history"),
-    ]
+]

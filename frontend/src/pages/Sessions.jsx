@@ -15,6 +15,7 @@ import Avatar from '../components/ui/Avatar';
 import { useAuth } from '../context/AuthContext';
 import {
   acceptSession,
+  addMeetingLink,
   cancelSession,
   completeSession,
   declineSession,
@@ -72,6 +73,10 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ reviewee_id: '', rating: 5, comment: '' });
+  
+  const [meetingLink, setMeetingLink] = useState('');
+  const [isEditingLink, setIsEditingLink] = useState(false);
+  const [savingLink, setSavingLink] = useState(false);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -91,6 +96,7 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
         setSession(data);
         const revieweeId = data?.sender?.id === user?.id ? data?.receiver?.id : data?.sender?.id;
         setForm((prev) => ({ ...prev, reviewee_id: revieweeId || '' }));
+        setMeetingLink(data?.meeting_link || '');
       })
       .catch((error) => {
         if (active) toast.error(formatApiError(error, 'Failed to fetch session details'));
@@ -124,6 +130,42 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSaveMeetingLink = async (e) => {
+    e.preventDefault();
+    if (!meetingLink.trim()) {
+      toast.error('Meeting link cannot be empty');
+      return;
+    }
+    if (!/^https?:\/\/[^\s$.?#].[^\s]*$/i.test(meetingLink.trim())) {
+      toast.error('Please enter a valid URL (starting with http:// or https://)');
+      return;
+    }
+    
+    setSavingLink(true);
+    try {
+      const response = await addMeetingLink(sessionId, meetingLink.trim());
+      const updatedData = unwrap(response);
+      if (updatedData) {
+        setSession(updatedData);
+        setMeetingLink(updatedData.meeting_link || '');
+      } else {
+        const freshRes = await getSessionDetail(sessionId);
+        const freshData = unwrap(freshRes);
+        if (freshData) {
+          setSession(freshData);
+          setMeetingLink(freshData.meeting_link || '');
+        }
+      }
+      toast.success('Meeting link updated successfully');
+      setIsEditingLink(false);
+      onReviewSubmitted?.(sessionId);
+    } catch (error) {
+      toast.error(formatApiError(error, 'Failed to update meeting link'));
+    } finally {
+      setSavingLink(false);
     }
   };
 
@@ -198,6 +240,99 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
                   <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--text-primary)]"><HiClock size={14} className="text-[var(--accent-secondary)] shrink-0" /> {detail?.time}</p>
                 </div>
               </div>
+
+              {/* Google Meet Link Section */}
+              {(session.status === 'confirmed' || session.status === 'completed') && (
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Google Meet Session Link</p>
+                    {session.status === 'confirmed' && session.meeting_link && !isEditingLink && (
+                      <button
+                        onClick={() => setIsEditingLink(true)}
+                        className="text-[11px] font-bold text-[var(--accent-primary)] hover:underline bg-transparent border-none cursor-pointer"
+                      >
+                        Edit Link
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isEditingLink || (session.status === 'confirmed' && !session.meeting_link) ? (
+                    <form onSubmit={handleSaveMeetingLink} className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={meetingLink}
+                          onChange={(e) => setMeetingLink(e.target.value)}
+                          placeholder="Paste Google Meet link (e.g. https://meet.google.com/abc-defg-hij)"
+                          className="input-premium flex-1 text-xs !py-1.5 !px-3"
+                          disabled={savingLink}
+                        />
+                        <button
+                          type="submit"
+                          disabled={savingLink}
+                          className="btn-primary !py-1.5 text-xs px-3 font-bold rounded-lg shrink-0"
+                        >
+                          {savingLink ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                      {isEditingLink && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingLink(false);
+                            setMeetingLink(session.meeting_link || '');
+                          }}
+                          className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-transparent border-none cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </form>
+                  ) : session.meeting_link ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl p-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{session.meeting_link}</p>
+                        {session.meeting_link_added_at && (
+                          <p className="text-[9px] text-[var(--text-muted)] mt-0.5 font-medium">
+                            Added: {formatDateTime(session.meeting_link_added_at).date} {formatDateTime(session.meeting_link_added_at).time}
+                          </p>
+                        )}
+                      </div>
+                      <a
+                        href={session.meeting_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-primary shrink-0 text-center text-xs font-bold py-1.5 px-4 rounded-lg flex items-center justify-center gap-1 hover:scale-[1.02] transition-all no-underline"
+                      >
+                        Join Meeting ↗
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[var(--text-muted)] italic font-medium">No meeting link added yet. One participant must add a Meet link before completion.</p>
+                  )}
+                </div>
+              )}
+
+              {/* Separate Completion Indicators */}
+              {session.status === 'confirmed' && (
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3.5 space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Session Completion Status</p>
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={`h-2.5 w-2.5 rounded-full ${session.completed_by_sender ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-muted)] opacity-50'}`} />
+                      <span className="text-[var(--text-secondary)] font-medium">
+                        Sender: <span className="font-bold">{session.completed_by_sender ? 'Marked Complete ✓' : 'Pending ⏳'}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={`h-2.5 w-2.5 rounded-full ${session.completed_by_receiver ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-muted)] opacity-50'}`} />
+                      <span className="text-[var(--text-secondary)] font-medium">
+                        Receiver: <span className="font-bold">{session.completed_by_receiver ? 'Marked Complete ✓' : 'Pending ⏳'}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {session.message ? (
                 <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">
@@ -298,7 +433,8 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
   const canAccept = session.status === 'pending' && !isSender;
   const canDecline = session.status === 'pending' && !isSender;
   const canCancel = ['pending', 'confirmed'].includes(session.status);
-  const canComplete = session.status === 'confirmed';
+  const userHasCompleted = isSender ? session.completed_by_sender : session.completed_by_receiver;
+  const canComplete = session.status === 'confirmed' && !userHasCompleted;
   const canReview = session.status === 'completed' && !reviewed;
 
   return (
@@ -338,13 +474,49 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
         </div>
       </div>
 
+      {session.status === 'confirmed' && (
+        <div className="mb-3 grid grid-cols-2 gap-2 text-[10px] bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl p-2.5 font-bold">
+          <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+            <span className={`h-2 w-2 rounded-full ${session.completed_by_sender ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-muted)] opacity-50'}`} />
+            <span>Sender: {session.completed_by_sender ? 'Complete ✓' : 'Pending'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+            <span className={`h-2 w-2 rounded-full ${session.completed_by_receiver ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-muted)] opacity-50'}`} />
+            <span>Receiver: {session.completed_by_receiver ? 'Complete ✓' : 'Pending'}</span>
+          </div>
+        </div>
+      )}
+
+      {session.status === 'confirmed' && session.meeting_link && (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-[rgba(124,111,247,0.06)] border border-[rgba(124,111,247,0.18)] px-3 py-2">
+          <div className="flex items-center gap-1.5 min-w-0 text-xs font-bold text-[var(--accent-primary)]">
+            <span className="shrink-0">📹</span>
+            <span className="truncate">Meet Link Ready</span>
+          </div>
+          <a
+            href={session.meeting_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary !py-1 px-3 text-[10px] font-bold rounded-lg shrink-0 flex items-center gap-0.5 no-underline hover:scale-[1.02] transition-all"
+          >
+            Join Meet ↗
+          </a>
+        </div>
+      )}
+      {session.status === 'confirmed' && !session.meeting_link && (
+        <div className="mb-3 flex items-center gap-1.5 rounded-xl bg-[rgba(251,191,36,0.05)] border border-[rgba(251,191,36,0.18)] px-3 py-2 text-[10px] font-bold text-[var(--accent-yellow)]">
+          <span className="shrink-0">⚠️</span>
+          <span>No meeting link added yet. (Required for completion)</span>
+        </div>
+      )}
+
       {session.message ? (
         <p className="mb-4 text-xs leading-relaxed text-[var(--text-secondary)] line-clamp-2 min-h-[2.5rem] overflow-hidden text-ellipsis">
           {session.message}
         </p>
       ) : (
         <div className="mb-4 min-h-[2.5rem] flex items-center">
-          <p className="text-xs italic text-[var(--text-muted)]">No details provided.</p>
+          <p className="text-xs italic text-[var(--text-muted)] font-medium">No details provided.</p>
         </div>
       )}
 
@@ -370,6 +542,11 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
         {canComplete ? (
           <button onClick={() => onAction('complete', session)} disabled={isBusy} className="btn-primary flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg disabled:opacity-60">
             <HiCheck size={14} /> Complete
+          </button>
+        ) : null}
+        {session.status === 'confirmed' && userHasCompleted ? (
+          <button disabled className="btn-ghost flex-1 flex items-center justify-center gap-1 !py-1.5 text-[11px] font-bold rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] cursor-not-allowed opacity-75">
+            Waiting for Partner...
           </button>
         ) : null}
         {canReview ? (
@@ -494,8 +671,9 @@ export default function Sessions() {
 
   return (
     <AppLayout>
-      <div className="w-full max-w-6xl space-y-4">
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="flex flex-col lg:flex-row gap-5 w-full max-w-6xl">
+        {/* Main Content Area */}
+        <div className="flex-1 space-y-4 min-w-0">
           <div className="card-premium flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="text-xl font-extrabold text-[var(--text-primary)]">My Sessions</h1>
@@ -523,53 +701,95 @@ export default function Sessions() {
             </div>
           </div>
 
-          <div className="card-premium p-4 flex flex-col justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Credits</p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <p className="text-2xl font-black text-[var(--accent-primary)]">{user?.profile?.credits ?? 0}</p>
-                <span className="text-[10px] font-semibold text-[var(--text-muted)]">credits available</span>
-              </div>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Total earned: {creditsEarned}</p>
+          {loading ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="card-premium h-[240px] animate-pulse bg-[var(--bg-card)] border-l-4 border-l-[var(--border-default)]" />
+              ))}
             </div>
-            <div className="mt-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] p-2 text-[11px] text-[var(--text-secondary)] leading-relaxed">
-              Earned from completed sessions.
+          ) : sessions.length ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {sessions.map((session) => (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  currentUserId={user?.id}
+                  pendingAction={pendingAction}
+                  reviewed={reviewedSessions.has(session.id)}
+                  onAction={handleAction}
+                  onOpenDetail={setDetailSessionId}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="card-premium flex flex-col items-center p-8 text-center max-w-md mx-auto mt-4">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)]">
+                <HiCalendar className="h-6 w-6 text-[var(--text-muted)]" />
+              </div>
+              <h2 className="text-base font-bold text-[var(--text-primary)]">No sessions in this view</h2>
+              <p className="mt-1 text-xs text-[var(--text-secondary)] max-w-xs">Use matches to create a request, then manage the full workflow here.</p>
+              <button onClick={() => setShowRequestModal(true)} className="btn-primary mt-4 flex items-center gap-1.5 px-4 !py-2 text-xs font-bold rounded-lg">
+                <HiRefresh size={14} /> Start a Session Request
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="w-full lg:w-[280px] shrink-0 space-y-4">
+          {/* Credits Summary Card */}
+          <div className="card-premium p-5 space-y-3.5">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Credits Balance</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <p className="text-3xl font-black text-[var(--accent-primary)]">{user?.profile?.credits ?? 0}</p>
+                <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Credits Available</span>
+              </div>
+              <p className="mt-1 text-xs text-[var(--text-secondary)] font-medium">Total earned: <span className="font-bold text-[var(--text-primary)]">{creditsEarned}</span></p>
+            </div>
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-[11px] text-[var(--text-secondary)] leading-relaxed font-medium">
+              Credits are rewarded for completing skill swap sessions once reviewed by both participants.
+            </div>
+          </div>
+
+          {/* Credit Transactions History Card */}
+          <div className="card-premium p-5 flex flex-col gap-4">
+            <h3 className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">Transaction History</h3>
+            
+            <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+              {credits.length ? (
+                credits.map((tx) => {
+                  const txDetail = formatDateTime(tx.created_at);
+                  const isPositive = Number(tx.amount) >= 0;
+                  return (
+                    <div key={tx.id} className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] pb-2.5 last:border-b-0 last:pb-0">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-[var(--text-primary)] truncate">{tx.reason || 'Session credit'}</p>
+                        <p className="text-[9px] text-[var(--text-muted)] mt-0.5 font-medium">{txDetail.date} • {txDetail.time}</p>
+                        {tx.expires_at && (
+                          <p className="text-[8px] text-[var(--accent-secondary)] mt-0.5 font-bold">
+                            Expires: {formatDateTime(tx.expires_at).date}
+                          </p>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                        isPositive 
+                          ? 'bg-[rgba(52,211,153,0.1)] text-[var(--accent-green)] border border-[rgba(52,211,153,0.2)]' 
+                          : 'bg-[rgba(249,112,102,0.1)] text-[var(--accent-secondary)] border border-[rgba(249,112,102,0.2)]'
+                      }`}>
+                        {isPositive ? `+${tx.amount}` : tx.amount}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-xs text-[var(--text-muted)] italic font-medium">No transactions found.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="card-premium h-[240px] animate-pulse bg-[var(--bg-card)] border-l-4 border-l-[var(--border-default)]" />
-            ))}
-          </div>
-        ) : sessions.length ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {sessions.map((session) => (
-              <SessionCard
-                key={session.id}
-                session={session}
-                currentUserId={user?.id}
-                pendingAction={pendingAction}
-                reviewed={reviewedSessions.has(session.id)}
-                onAction={handleAction}
-                onOpenDetail={setDetailSessionId}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="card-premium flex flex-col items-center p-8 text-center max-w-md mx-auto mt-4">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)]">
-              <HiCalendar className="h-6 w-6 text-[var(--text-muted)]" />
-            </div>
-            <h2 className="text-base font-bold text-[var(--text-primary)]">No sessions in this view</h2>
-            <p className="mt-1 text-xs text-[var(--text-secondary)] max-w-xs">Use matches to create a request, then manage the full workflow here.</p>
-            <button onClick={() => setShowRequestModal(true)} className="btn-primary mt-4 flex items-center gap-1.5 px-4 !py-2 text-xs font-bold rounded-lg">
-              <HiRefresh size={14} /> Start a Session Request
-            </button>
-          </div>
-        )}
       </div>
 
       {showRequestModal ? (

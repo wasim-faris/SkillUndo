@@ -23,11 +23,11 @@ def send_session_request(sender, validated_data):
     """
     session = SessionRequest.objects.create(
         sender=sender,
-        receiver=validated_data['receiver'],
-        teach_skill=Skill.objects.get(id=validated_data['teach_skill_id']),
-        learn_skill=Skill.objects.get(id=validated_data['learn_skill_id']),
-        proposed_time=validated_data['proposed_time'],
-        message=validated_data.get('message', ''),
+        receiver=validated_data["receiver"],
+        teach_skill=Skill.objects.get(id=validated_data["teach_skill_id"]),
+        learn_skill=Skill.objects.get(id=validated_data["learn_skill_id"]),
+        proposed_time=validated_data["proposed_time"],
+        message=validated_data.get("message", ""),
         status=SESSION_PENDING,
     )
 
@@ -87,6 +87,7 @@ def cancel_session(session, user):
     session.save()
     return session
 
+
 def add_meeting_link(session, user, link):
     """
     Only confirmed session participants can add meeting link.
@@ -103,6 +104,7 @@ def add_meeting_link(session, user, link):
 
     return session, None
 
+
 def complete_session(session, user):
     """
     Real world rules:
@@ -111,7 +113,7 @@ def complete_session(session, user):
     3. Both must mark complete separately
     4. Credits awarded only after both users review
     """
-  
+
     if user not in [session.sender, session.receiver]:
         return None, "You are not part of this session"
 
@@ -128,7 +130,7 @@ def complete_session(session, user):
         if session.completed_by_sender:
             return None, "You already marked this session complete"
         session.completed_by_sender = True
-    elif user==session.receiver:
+    elif user == session.receiver:
         if session.completed_by_receiver:
             return None, "You already marked this session complete"
         session.completed_by_receiver = True
@@ -183,12 +185,11 @@ def submit_review(session, reviewer, validated_data):
         return None, "You are not part of this session"
 
     already_reviewed = Review.objects.filter(
-        session = session,
-        reviewer=reviewer
+        session=session, reviewer=reviewer
     ).exists()
 
     if already_reviewed:
-        return None , "You already reviewed this session"
+        return None, "You already reviewed this session"
 
     review = Review.objects.create(
         session=session,
@@ -199,8 +200,8 @@ def submit_review(session, reviewer, validated_data):
     )
 
     update_avg_rating(review.reviewee)
-    #award credits only if BOTH users reviewed
-    review_count= Review.objects.filter(session=session).count()
+    # award credits only if BOTH users reviewed
+    review_count = Review.objects.filter(session=session).count()
     if review_count == 2:
         award_credit(session.sender)
         award_credit(session.receiver)

@@ -1,4 +1,3 @@
-
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
@@ -79,12 +78,10 @@ class AcceptSessionView(APIView):
 
     def patch(self, request, session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
-        result,error = accept_session_request(session, request.user)
+        result, error = accept_session_request(session, request.user)
 
         if not result:
-            return error_response(
-                message=error, status_code=400
-            )
+            return error_response(message=error, status_code=400)
         return success_response(
             data=SessionRequestSerializer(result).data,
             message="Session accepted successfully",
@@ -96,11 +93,9 @@ class DeclineSessionView(APIView):
 
     def patch(self, request, session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
-        result,error = decline_session_request(session, request.user)
+        result, error = decline_session_request(session, request.user)
         if not result:
-            return error_response(
-                message=error, status_code=400
-            )
+            return error_response(message=error, status_code=400)
         return success_response(
             data=SessionRequestSerializer(result).data,
             message="Session declined successfully",
@@ -112,26 +107,22 @@ class CancelSessionView(APIView):
 
     def delete(self, request, session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
-        result,error = cancel_session(session, request.user)
+        result, error = cancel_session(session, request.user)
 
         if not result:
-            return error_response(
-                message=error, status_code=400
-            )
+            return error_response(message=error, status_code=400)
         return success_response(message="Session cancelled successfully")
 
 
 class CompleteSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request,session_id):
+    def patch(self, request, session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
-        result,error = complete_session(session, request.user)
+        result, error = complete_session(session, request.user)
 
         if not result:
-            return error_response(
-                message=error, status_code=400
-            )
+            return error_response(message=error, status_code=400)
         return success_response(
             data=SessionRequestSerializer(result).data,
             message="Session comeleted successfully",
@@ -148,16 +139,14 @@ class SubmitReviewView(APIView):
         )
         if not serializer.is_valid():
             return error_response(message=serializer.errors, status_code=400)
-        review,error = submit_review(
+        review, error = submit_review(
             session=session,
             reviewer=request.user,
             validated_data=serializer.validated_data,
         )
 
         if not review:
-            return error_response(
-                message=error, status_code=400
-            )
+            return error_response(message=error, status_code=400)
 
         return success_response(
             data=ReviewSerializer(review).data,
@@ -176,27 +165,27 @@ class CreditHistoryView(APIView):
             data=serializer.data, message="Credit history fected succesfully"
         )
 
+
 class PublicProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
         try:
-            user = User.objects.select_related(
-                'profile',
-            ).prefetch_related(
-                'user_skills'
-            ).get(id=user_id)
+            user = (
+                User.objects.select_related(
+                    "profile",
+                )
+                .prefetch_related("user_skills")
+                .get(id=user_id)
+            )
             print(user.email)
             print(user.user_skills.all())
         except User.DoesNotExist:
-            return error_response(
-                message="User not found",
-                status_code=404
-            )
+            return error_response(message="User not found", status_code=404)
         return success_response(
-            data=UserSerializer(user).data,
-            message="Profile Fetched successfully"
+            data=UserSerializer(user).data, message="Profile Fetched successfully"
         )
+
 
 class PublicUserSkillView(APIView):
     permission_classes = [IsAuthenticated]
@@ -205,17 +194,16 @@ class PublicUserSkillView(APIView):
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
-            return error_response(
-                message="User not found",
-                status_code=404
-            )
+            return error_response(message="User not found", status_code=404)
         skills = get_user_skills(user)
-        serializer = UserSkillSerializer(skills, many=True, context={'request': request})
+        serializer = UserSkillSerializer(
+            skills, many=True, context={"request": request}
+        )
 
         return success_response(
-            data=serializer.data,
-            message="User Skill fetched successfully"
+            data=serializer.data, message="User Skill fetched successfully"
         )
+
 
 class AddMeetingLinkView(APIView):
     permission_classes = [IsAuthenticated]
@@ -225,17 +213,11 @@ class AddMeetingLinkView(APIView):
         link = request.data.get("meeting_link", "")
 
         if not link:
-            return error_response(
-                message="Meeting link is required",
-                status_code=400
-            )
-        result,error = add_meeting_link(session, request.user, link)
+            return error_response(message="Meeting link is required", status_code=400)
+        result, error = add_meeting_link(session, request.user, link)
 
         if not result:
-            return error_response(
-                message=error,
-                status_code=400
-            )
+            return error_response(message=error, status_code=400)
         return success_response(
             data=SessionRequestSerializer(result).data,
             message="Meeting link added successfully",
