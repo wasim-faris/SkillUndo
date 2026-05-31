@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -67,13 +68,14 @@ const statusBadgeClass = {
   cancelled: 'bg-[var(--bg-secondary)] text-[var(--text-muted)] border-[var(--border-default)]',
 };
 
-function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted }) {
+function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted, onMeetingLinkUpdated }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ reviewee_id: '', rating: 5, comment: '' });
-  
+
   const [meetingLink, setMeetingLink] = useState('');
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [savingLink, setSavingLink] = useState(false);
@@ -146,22 +148,25 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
     
     setSavingLink(true);
     try {
-      const response = await addMeetingLink(sessionId, meetingLink.trim());
+      const link = meetingLink.trim();
+      const response = await addMeetingLink(sessionId, link);
       const updatedData = unwrap(response);
+      const resolvedLink = updatedData?.meeting_link || link;
+
       if (updatedData) {
         setSession(updatedData);
-        setMeetingLink(updatedData.meeting_link || '');
+        setMeetingLink(resolvedLink);
       } else {
-        const freshRes = await getSessionDetail(sessionId);
-        const freshData = unwrap(freshRes);
-        if (freshData) {
-          setSession(freshData);
-          setMeetingLink(freshData.meeting_link || '');
-        }
+        // Optimistically update local modal state
+        setSession((prev) => prev ? { ...prev, meeting_link: resolvedLink } : prev);
+        setMeetingLink(resolvedLink);
       }
+
+      // Immediately push the updated link to parent so SessionCard re-renders
+      onMeetingLinkUpdated?.(sessionId, resolvedLink);
+
       toast.success('Meeting link updated successfully');
       setIsEditingLink(false);
-      onReviewSubmitted?.(sessionId);
     } catch (error) {
       toast.error(formatApiError(error, 'Failed to update meeting link'));
     } finally {
@@ -210,13 +215,26 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {[session.sender, session.receiver].map((participant, index) => {
                   const role = index === 0 ? 'Sender' : 'Receiver';
+                  const isSelf = participant?.id === user?.id;
                   return (
-                    <div key={participant.id} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 flex items-center gap-3">
-                      <Avatar firstName={participant.name?.split(' ')[0]} lastName={participant.name?.split(' ')[1]} src={participant.photo} className="!h-9 !w-9" />
-                      <div className="min-w-0">
+                    <div
+                      key={participant.id}
+                      onClick={() => !isSelf && participant.id && navigate(`/profile/${participant.id}`)}
+                      className={`rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 flex items-center gap-3 transition-all ${
+                        !isSelf ? 'cursor-pointer hover:border-[var(--accent-primary)] hover:bg-[var(--bg-hover)]' : ''
+                      }`}
+                      title={!isSelf ? 'View Profile' : undefined}
+                    >
+                      <Avatar firstName={participant.name?.split(' ')[0]} lastName={participant.name?.split(' ')[1]} src={participant.photo} className="!h-9 !w-9 shrink-0" />
+                      <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">{role}</p>
-                        <p className="truncate text-xs font-bold text-[var(--text-primary)]">{participant.name}</p>
-                        <p className="truncate text-[11px] text-[var(--text-secondary)]">{participant.email}</p>
+                        <p className={`truncate text-xs font-bold text-[var(--text-primary)] ${!isSelf ? 'hover:text-[var(--accent-primary)] transition-colors' : ''}`}>{participant.name}</p>
+                        <p className="truncate text-[11px] text-[var(--text-secondary)] mb-0.5">{participant.email}</p>
+                        {!isSelf && (
+                          <span className="inline-flex text-[10px] font-extrabold text-[var(--accent-primary)] hover:underline items-center gap-0.5 mt-0.5">
+                            View Profile ↗
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -425,6 +443,10 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
 }
 
 function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDetail, reviewed }) {
+  const navigate = useNavigate();
+  // Track a local completing state to prevent double-fire on the complete button
+  const [completing, setCompleting] = useState(false);
+
   const isSender = session?.sender?.id === currentUserId;
   const partner = isSender ? session?.receiver : session?.sender;
   const directionLabel = isSender ? 'Outgoing Request' : 'Incoming Request';
@@ -437,6 +459,17 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
   const canComplete = session.status === 'confirmed' && !userHasCompleted;
   const canReview = session.status === 'completed' && !reviewed;
 
+  const handleComplete = async (e) => {
+    e.stopPropagation();
+    if (completing || isBusy) return;
+    setCompleting(true);
+    try {
+      await onAction('complete', session);
+    } finally {
+      setCompleting(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -444,11 +477,18 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
       className="card-premium flex flex-col border-l-4 border-l-[var(--accent-primary)] p-4 sm:p-5 hover:translate-y-[-2px] hover:shadow-md transition-all duration-300"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+        <div
+          onClick={() => partner?.id && navigate(`/profile/${partner.id}`)}
+          className="flex items-center gap-3 min-w-0 cursor-pointer hover:opacity-85 transition-opacity"
+          title="View Profile"
+        >
           <Avatar firstName={partner?.name?.split(' ')[0]} lastName={partner?.name?.split(' ')[1]} src={partner?.photo} className="!h-10 !w-10 !rounded-lg shrink-0" />
           <div className="min-w-0">
-            <h3 className="truncate text-base font-bold text-[var(--text-primary)]">{partner?.name || 'Unknown user'}</h3>
-            <p className="truncate text-xs text-[var(--text-secondary)]">{partner?.headline || partner?.email || 'Skill partner'}</p>
+            <h3 className="truncate text-base font-bold text-[var(--text-primary)] hover:text-[var(--accent-primary)] transition-colors">{partner?.name || 'Unknown user'}</h3>
+            <p className="truncate text-xs text-[var(--text-secondary)] mb-0.5">{partner?.headline || partner?.email || 'Skill partner'}</p>
+            <span className="inline-flex text-[10px] font-extrabold text-[var(--accent-primary)] hover:underline items-center gap-0.5">
+              View Profile ↗
+            </span>
           </div>
         </div>
         <span className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${statusBadgeClass[session.status] || statusBadgeClass.cancelled}`}>
@@ -525,23 +565,39 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
           Details
         </button>
         {canAccept ? (
-          <button onClick={() => onAction('accept', session)} disabled={isBusy} className="btn-primary flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg disabled:opacity-60">
-            <HiCheck size={14} /> Accept
+          <button
+            onClick={(e) => { e.stopPropagation(); onAction('accept', session); }}
+            disabled={isBusy}
+            className="btn-primary flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg disabled:opacity-60"
+          >
+            {isBusy ? '...' : <><HiCheck size={14} /> Accept</>}
           </button>
         ) : null}
         {canDecline ? (
-          <button onClick={() => onAction('decline', session)} disabled={isBusy} className="btn-ghost flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg text-[var(--accent-secondary)] border border-[var(--border-default)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-card)] disabled:opacity-60">
-            <HiX size={14} /> Decline
+          <button
+            onClick={(e) => { e.stopPropagation(); onAction('decline', session); }}
+            disabled={isBusy}
+            className="btn-ghost flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg text-[var(--accent-secondary)] border border-[var(--border-default)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-card)] disabled:opacity-60"
+          >
+            {isBusy ? '...' : <><HiX size={14} /> Decline</>}
           </button>
         ) : null}
         {canCancel ? (
-          <button onClick={() => onAction('cancel', session)} disabled={isBusy} className="btn-ghost flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-card)] disabled:opacity-60">
-            <HiX size={14} /> Cancel
+          <button
+            onClick={(e) => { e.stopPropagation(); onAction('cancel', session); }}
+            disabled={isBusy}
+            className="btn-ghost flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-card)] disabled:opacity-60"
+          >
+            {isBusy ? '...' : <><HiX size={14} /> Cancel</>}
           </button>
         ) : null}
         {canComplete ? (
-          <button onClick={() => onAction('complete', session)} disabled={isBusy} className="btn-primary flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg disabled:opacity-60">
-            <HiCheck size={14} /> Complete
+          <button
+            onClick={handleComplete}
+            disabled={completing || isBusy}
+            className="btn-primary flex-1 flex items-center justify-center gap-1 !py-1.5 text-xs font-bold rounded-lg disabled:opacity-60"
+          >
+            {completing ? 'Saving...' : <><HiCheck size={14} /> Complete</>}
           </button>
         ) : null}
         {session.status === 'confirmed' && userHasCompleted ? (
@@ -560,7 +616,7 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
 }
 
 export default function Sessions() {
-  const { user, updateUser } = useAuth();
+  const { user } = useAuth();
   const [filter, setFilter] = useState('all');
   const [sessions, setSessions] = useState([]);
   const [credits, setCredits] = useState([]);
@@ -570,10 +626,15 @@ export default function Sessions() {
   const [detailSessionId, setDetailSessionId] = useState('');
   const [reviewedSessions, setReviewedSessions] = useState(() => new Set());
 
-  const fetchSessions = useCallback(async (selectedFilter = filter) => {
+  // Use a ref so fetchSessions never has a stale closure over filter
+  const filterRef = useRef(filter);
+  useEffect(() => { filterRef.current = filter; }, [filter]);
+
+  const fetchSessions = useCallback(async (statusOverride) => {
+    const statusToFetch = statusOverride !== undefined ? statusOverride : filterRef.current;
     try {
       const [sessionsRes, creditsRes] = await Promise.all([
-        getMySessions(selectedFilter),
+        getMySessions(statusToFetch),
         getCreditHistory(),
       ]);
       setSessions(asArray(unwrap(sessionsRes)));
@@ -583,7 +644,7 @@ export default function Sessions() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -623,11 +684,12 @@ export default function Sessions() {
     const previousSession = session;
     setPendingAction(session.id);
 
+    // Only apply optimistic status for non-complete actions
+    // (complete may stay 'confirmed' if only one party marked it)
     const optimisticStatuses = {
       accept: 'confirmed',
       decline: 'cancelled',
       cancel: 'cancelled',
-      complete: 'completed',
     };
 
     if (optimisticStatuses[action]) {
@@ -647,20 +709,28 @@ export default function Sessions() {
       }
 
       if (action === 'complete') {
-        setLoading(true);
-        await fetchSessions(filter);
-        if (user?.profile) {
-          updateUser?.({
-            profile: {
-              ...user.profile,
-              credits: (user.profile.credits ?? 0) + 2,
-              total_sessions: (user.profile.total_sessions ?? 0) + 1,
-            },
-          });
+        // Determine if fully completed or still waiting for other party
+        const isFullyCompleted = updated?.status === 'completed';
+        if (isFullyCompleted) {
+          toast.success('Session marked complete! Both parties confirmed.');
+        } else {
+          toast.success('Marked complete — waiting for the other person to confirm.');
         }
+        setLoading(true);
+        await fetchSessions();
+      } else if (action === 'accept') {
+        toast.success('Session accepted!');
+        setLoading(true);
+        await fetchSessions();
+      } else if (action === 'decline') {
+        toast.success('Session declined.');
+        setLoading(true);
+        await fetchSessions();
+      } else if (action === 'cancel') {
+        toast.success('Session cancelled.');
+        setLoading(true);
+        await fetchSessions();
       }
-
-      toast.success(`${action.charAt(0).toUpperCase()}${action.slice(1)} successful`);
     } catch (error) {
       applySessionUpdate(session.id, () => previousSession);
       toast.error(formatApiError(error, `Failed to ${action} session`));
@@ -811,9 +881,30 @@ export default function Sessions() {
           sessionId={detailSessionId}
           reviewed={reviewedSessions.has(detailSessionId)}
           onClose={() => setDetailSessionId('')}
-          onReviewSubmitted={(sessionId) => {
+          onMeetingLinkUpdated={(sessionId, link) => {
+            // Immediately update the matching session in the list so SessionCard shows Join Meet
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === sessionId ? { ...s, meeting_link: link } : s
+              )
+            );
+          }}
+          onReviewSubmitted={async (sessionId) => {
             setReviewedSessions((prev) => new Set(prev).add(sessionId));
-            fetchSessions(filter);
+            const prevCreditCount = credits.length;
+            await fetchSessions();
+            // fetchSessions updates the `credits` state; use getCreditHistory directly
+            // to detect if credits were awarded (review_count reached 2 on backend)
+            try {
+              const freshCreditsRes = await getCreditHistory();
+              const freshCredits = asArray(unwrap(freshCreditsRes));
+              setCredits(freshCredits);
+              if (freshCredits.length > prevCreditCount) {
+                toast.success('🎉 Credits awarded! Both parties have reviewed the session.');
+              }
+            } catch {
+              // Silently ignore — credits panel will update on next refresh
+            }
           }}
         />
       ) : null}

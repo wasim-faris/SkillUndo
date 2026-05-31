@@ -67,7 +67,7 @@ def decline_session_request(session, user):
 
     session.status = SESSION_CANCELLED
     session.save()
-    return session
+    return session, None
 
 
 def cancel_session(session, user):
@@ -143,7 +143,7 @@ def complete_session(session, user):
         update_session_count(session.sender)
         update_session_count(session.receiver)
 
-    return session
+    return session,None
 
 
 def award_credit(user):
