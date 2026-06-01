@@ -37,9 +37,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    "DEFAULT_RENDERER_CLASSES": (
-        "rest_framework.renderers.JSONRenderer",
-    ),
+    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
 }
 
 
@@ -125,8 +123,12 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-SIMPLE_JWT = dict(ACCESS_TOKEN_LIFETIME=timedelta(days=1), REFRESH_TOKEN_LIFETIME=timedelta(days=7),
-                  ROTATE_REFRESH_TOKENS=True, BLACKLIST_AFTER_ROTATION=True)
+SIMPLE_JWT = dict(
+    ACCESS_TOKEN_LIFETIME=timedelta(days=1),
+    REFRESH_TOKEN_LIFETIME=timedelta(days=7),
+    ROTATE_REFRESH_TOKENS=True,
+    BLACKLIST_AFTER_ROTATION=True,
+)
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 

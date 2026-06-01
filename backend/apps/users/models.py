@@ -33,11 +33,7 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     photo = models.ImageField(upload_to="profile_photos/", null=True, blank=True)
     bio = models.TextField(blank=True)
     headline = models.CharField(max_length=200, blank=True)
-    banner_image = models.ImageField(
-        upload_to="banners/",
-        null=True,
-        blank=True
-    )
+    banner_image = models.ImageField(upload_to="banners/", null=True, blank=True)
     is_available = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

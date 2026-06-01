@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   HiPencil, HiLocationMarker, HiGlobe, HiLightningBolt,
@@ -10,8 +10,9 @@ import {
 } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../context/AuthContext';
-import { getProfile, updateProfile } from '../api/auth';
-import { getMatches, getUserSkills } from '../api/skills';
+import { getProfile, getPublicProfile, updateProfile } from '../api/auth';
+import { getMatches, getUserSkills, getPublicUserSkills } from '../api/skills';
+
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 const PROFILE_MEDIA_VERSION_KEY = 'skillswap_profile_media_version';
@@ -71,18 +72,6 @@ const getBannerImage = (profile) => getAssetUrl(pick(
   profile?.cover_image,
   profile?.cover,
 ));
-const getRawProfileImage = (profile) => pick(
-  profile?.photo,
-  profile?.profile_image,
-  profile?.avatar,
-  profile?.image,
-);
-const getRawBannerImage = (profile) => pick(
-  profile?.banner_image,
-  profile?.banner,
-  profile?.cover_image,
-  profile?.cover,
-);
 const normalizeProfileMedia = (profile) => {
   if (!profile) return profile;
   return {
@@ -92,12 +81,18 @@ const normalizeProfileMedia = (profile) => {
   };
 };
 const normalizeSkillName = (item) =>
-  item?.skill?.name || item?.name || item?.title || item?.skill_name || item;
+  (
+    item?.skill?.name
+    || item?.name
+    || item?.title
+    || item?.skill_name
+    || (typeof item === 'string' ? item : '')
+  ).toString().trim();
 const normalizeTeachSkill = (item) => {
   const name = normalizeSkillName(item);
   if (!name) return null;
   return {
-    id: item?.id || item?.skill?.id || name,
+    id: item?.id || item?.skill?.id || `teach-${name.toLowerCase()}`,
     name,
     endorsements: item?.endorsements ?? item?.endorsement_count ?? 0,
     level: item?.level ?? item?.proficiency ?? 3,
@@ -107,10 +102,11 @@ const normalizeLearnSkill = (item) => {
   const name = normalizeSkillName(item);
   if (!name) return null;
   return {
-    id: item?.id || item?.skill?.id || name,
+    id: item?.id || item?.skill?.id || `learn-${name.toLowerCase()}`,
     name,
   };
 };
+
 const normalizeExperience = (item) => ({
   title: pick(item?.title, item?.role, item?.position, 'Role'),
   company: pick(item?.company, item?.organization, item?.employer, 'Company'),
@@ -196,7 +192,7 @@ function SkillLoadingState({ variant = 'teach' }) {
   const widths = variant === 'teach' ? ['w-32', 'w-40', 'w-36'] : ['w-28', 'w-36', 'w-32'];
 
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="flex min-h-[88px] flex-wrap content-start gap-4">
       {widths.map((width, index) => (
         <div key={index} className={`h-12 ${width} bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-xl animate-pulse`} />
       ))}
@@ -204,44 +200,48 @@ function SkillLoadingState({ variant = 'teach' }) {
   );
 }
 
-function SkillEmptyState({ message, onAdd, variant = 'teach' }) {
+function SkillEmptyState({ message, onAdd, variant = 'teach', canAdd = true }) {
   const buttonClass = variant === 'learn'
     ? 'border-[var(--accent-secondary)] text-[var(--accent-secondary)] hover:bg-[rgba(249,112,102,0.1)]'
     : 'border-[var(--accent-primary)] text-[var(--accent-primary)] hover:bg-[rgba(124,111,247,0.1)]';
 
   return (
-    <div className="w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-5 py-8 text-center flex flex-col items-center">
+    <div className="flex min-h-[88px] w-full flex-col items-center justify-center rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-5 py-8 text-center">
       <p className="text-[var(--text-secondary)] font-medium text-sm mb-4">{message}</p>
-      <button
-        onClick={onAdd}
-        className={`px-3 py-1.5 text-[12px] rounded-lg border font-medium transition-all flex items-center gap-1 ${buttonClass}`}
-      >
-        <HiPlus size={13} /> Add Skill
-      </button>
+      {canAdd ? (
+        <button
+          onClick={onAdd}
+          className={`px-3 py-1.5 text-[12px] rounded-lg border font-medium transition-all flex items-center gap-1 ${buttonClass}`}
+        >
+          <HiPlus size={13} /> Add Skill
+        </button>
+      ) : null}
     </div>
   );
 }
 
-function ProfileSkillsSection({ type, skills, loading, onAdd }) {
+function ProfileSkillsSection({ type, skills, loading, onAdd, canAdd = true }) {
   const isLearn = type === 'learn';
+  const hasSkills = skills.length > 0;
 
   if (loading) {
     return <SkillLoadingState variant={type} />;
   }
 
-  if (!skills.length) {
+  if (!hasSkills) {
     return (
       <SkillEmptyState
-        message={isLearn ? 'No learning skills added yet' : 'No teaching skills added yet'}
+        message="No skills added yet"
         onAdd={onAdd}
         variant={type}
+        canAdd={canAdd}
       />
     );
   }
 
   if (isLearn) {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex min-h-[88px] flex-wrap content-start gap-2">
         {skills.map(skill => (
           <span key={skill.id} className="px-3.5 py-1.5 rounded-full bg-[rgba(249,112,102,0.1)] border border-[rgba(249,112,102,0.3)] text-[var(--accent-secondary)] text-[13px] font-medium hover:bg-[rgba(249,112,102,0.2)] transition-all cursor-default">
             {skill.name}
@@ -252,7 +252,7 @@ function ProfileSkillsSection({ type, skills, loading, onAdd }) {
   }
 
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="flex min-h-[88px] flex-wrap content-start gap-4">
       {skills.map(skill => (
         <div key={skill.id} className="flex flex-col items-start bg-[var(--bg-secondary)] border border-[var(--border-default)] p-2 rounded-xl">
           <div className="flex items-center gap-2 px-2 py-1 text-[var(--text-primary)] text-[13px] font-semibold cursor-default">
@@ -328,6 +328,15 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
   ), [bannerFile, bannerUrl]);
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
     };
@@ -341,19 +350,11 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
 
   const updateField = (field) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
-    if (field === 'is_available') {
-      console.log('[Profile] Availability toggle changed:', {
-        previous: form.is_available,
-        next: value,
-        rawProfileValue: profile?.is_available,
-      });
-    }
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    console.log('SAVE BUTTON CLICKED');
     setSaving(true);
 
     try {
@@ -374,14 +375,6 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
         if (value !== currentValue) fields[key] = value;
       });
 
-      console.log('[Profile] Availability before save:', {
-        initial: initialAvailability,
-        current: form.is_available,
-        payloadValue: fields.is_available,
-        payloadType: typeof fields.is_available,
-        rawProfileValue: profile?.is_available,
-      });
-
       if (photoFile || bannerFile) {
         const data = new FormData();
         Object.entries(fields).forEach(([key, value]) => {
@@ -389,13 +382,10 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
         });
         if (photoFile) data.append('photo', photoFile);
         if (bannerFile) data.append('banner_image', bannerFile);
-
-        console.log('FORM DATA:', Object.fromEntries(data.entries()));
         await onSave(data);
         return;
       }
 
-      console.log('PROFILE UPDATE PAYLOAD:', fields);
       await onSave(fields);
     } finally {
       setSaving(false);
@@ -403,14 +393,14 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 px-3 py-4 backdrop-blur-sm sm:px-4">
       <motion.form
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onSubmit={handleSubmit}
-        className="card-premium w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6"
+        className="card-premium flex w-full max-w-2xl flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between pb-4 mb-5 border-b border-[var(--border-default)]">
+        <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 pb-4 pt-5 sm:px-6">
           <div>
             <h2 className="text-lg font-black text-[var(--text-primary)]">Edit Profile</h2>
             <p className="text-[12px] text-[var(--text-muted)] mt-1">Update your public profile details.</p>
@@ -424,6 +414,7 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
           </button>
         </div>
 
+        <div className="max-h-[calc(100vh-14rem)] overflow-y-auto px-5 py-5 sm:max-h-[calc(100vh-13rem)] sm:px-6">
         <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FilePicker id="profile-photo" label="Profile image" file={photoFile} previewUrl={photoPreview} onChange={setPhotoFile} />
@@ -462,10 +453,11 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
             <input type="checkbox" checked={form.is_available} onChange={updateField('is_available')} className="w-5 h-5 accent-[var(--accent-primary)]" />
           </label>
         </div>
+        </div>
 
-        <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-[var(--border-default)]">
+        <div className="sticky bottom-0 flex justify-end gap-3 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-5 py-4 sm:px-6">
           <button type="button" onClick={onClose} className="btn-ghost px-5" disabled={saving}>Cancel</button>
-          <button type="submit" onClick={() => console.log('SAVE PROFILE BUTTON CLICKED')} className="btn-primary px-5 disabled:opacity-60" disabled={saving}>
+          <button type="submit" className="btn-primary px-5 disabled:opacity-60" disabled={saving}>
             {saving ? 'Saving...' : 'Save Profile'}
           </button>
         </div>
@@ -477,38 +469,66 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
 /* ─── MAIN PAGE ─── */
 export default function Profile() {
   const navigate = useNavigate();
+  const { user_id: userId } = useParams();
   const { user, updateUser } = useAuth();
-  const [profile, setProfile] = useState(user);
+  const isOwnProfile = !userId || userId === user?.id;
+  const [profile, setProfile] = useState(() => (isOwnProfile ? user : null));
   const [userSkills, setUserSkills] = useState([]);
+  const [publicUserSkills, setPublicUserSkills] = useState([]);
   const [matches, setMatches] = useState([]);
+
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [mediaVersion, setMediaVersion] = useState(getStoredMediaVersion);
   const [failedMediaUrls, setFailedMediaUrls] = useState({ photo: null, banner: null });
+  const latestFetchRef = useRef(0);
 
-  const applyProfile = useCallback((nextProfile, nextMediaVersion) => {
+  const applyProfile = useCallback((nextProfile, nextMediaVersion, shouldSyncUser = false) => {
     if (!nextProfile) return;
     const normalizedProfile = normalizeProfileMedia(nextProfile);
     const syncedProfile = nextMediaVersion
       ? { ...normalizedProfile, __media_version: nextMediaVersion }
       : normalizedProfile;
     setProfile(syncedProfile);
-    updateUser?.(syncedProfile);
+    if (shouldSyncUser) updateUser?.(syncedProfile);
   }, [updateUser]);
 
   const fetchProfileData = useCallback(async ({ includeRelated = true } = {}) => {
+    const fetchId = latestFetchRef.current + 1;
+    latestFetchRef.current = fetchId;
     setLoadingProfile(true);
     try {
+      if (!isOwnProfile) {
+        const [profileRes, skillsRes] = await Promise.allSettled([
+          getPublicProfile(userId),
+          getPublicUserSkills(userId),
+        ]);
+
+        if (latestFetchRef.current !== fetchId) return null;
+
+        let selectedProfile = null;
+        if (profileRes?.status === 'fulfilled') {
+          selectedProfile = unwrap(profileRes.value);
+          applyProfile(selectedProfile);
+        }
+
+        if (skillsRes?.status === 'fulfilled') {
+          setPublicUserSkills(asArray(unwrap(skillsRes.value)));
+        }
+
+        return selectedProfile || null;
+      }
+
       const requests = includeRelated
         ? [getProfile(), getUserSkills(), getMatches()]
         : [getProfile()];
 
       const [profileRes, skillsRes, matchesRes] = await Promise.allSettled(requests);
+      if (latestFetchRef.current !== fetchId) return null;
 
       if (profileRes?.status === 'fulfilled') {
         const profileData = unwrap(profileRes.value);
-        console.log('[Profile] FETCH PROFILE RESPONSE:', profileRes.value?.data);
-        applyProfile(profileData);
+        applyProfile(profileData, undefined, true);
       }
 
       if (includeRelated && skillsRes?.status === 'fulfilled') {
@@ -521,13 +541,19 @@ export default function Profile() {
 
       return profileRes?.status === 'fulfilled' ? unwrap(profileRes.value) : null;
     } finally {
-      setLoadingProfile(false);
+      if (latestFetchRef.current === fetchId) {
+        setLoadingProfile(false);
+      }
     }
-  }, [applyProfile]);
+  }, [applyProfile, isOwnProfile, userId]);
 
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(() => {
+      if (!active) return;
+      setProfile(isOwnProfile ? user : null);
+      setPublicUserSkills([]);
+      setFailedMediaUrls({ photo: null, banner: null });
       fetchProfileData().catch((error) => {
         if (active) console.error('[Profile] Initial fetch failed:', error?.response?.data || error);
       });
@@ -537,92 +563,74 @@ export default function Profile() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [fetchProfileData]);
+  }, [fetchProfileData, isOwnProfile, user]);
 
-  const profileData = profile || user || {};
+  const profileData = useMemo(
+    () => profile || (isOwnProfile ? user : null) || {},
+    [isOwnProfile, profile, user],
+  );
   const stats = profileData.profile || {};
-  const displayName = pick(profileData.name, user?.name, 'User');
+  const displayName = pick(profileData.name, isOwnProfile ? user?.name : null, 'User');
   const initials = getInitials(displayName);
-  const rawPhoto = getRawProfileImage(profileData) || getRawProfileImage(user);
-  const rawBanner = getRawBannerImage(profileData) || getRawBannerImage(user);
-  const photoUrl = withCacheBust(getProfileImage(profileData) || getProfileImage(user), mediaVersion);
-  const bannerUrl = withCacheBust(getBannerImage(profileData) || getBannerImage(user), mediaVersion);
+  const photoUrl = withCacheBust(getProfileImage(profileData) || (isOwnProfile ? getProfileImage(user) : null), mediaVersion);
+  const bannerUrl = withCacheBust(getBannerImage(profileData) || (isOwnProfile ? getBannerImage(user) : null), mediaVersion);
   const photoFailed = photoUrl && failedMediaUrls.photo === photoUrl;
   const bannerFailed = bannerUrl && failedMediaUrls.banner === bannerUrl;
-  const headline = pick(profileData.headline, profileData.title, profileData.language && `${profileData.language} Speaker`, 'Add a headline');
-  const location = pick(profileData.location, profileData.city, 'Add your location');
-  const bio = pick(profileData.bio, 'Add a short bio to tell people what you teach and want to learn.');
+  const headline = pick(profileData.headline, profileData.title, profileData.language && `${profileData.language} Speaker`, 'No headline added');
+  const location = pick(profileData.location, profileData.city, 'Location not added');
+  const bio = pick(profileData.bio, 'No bio added yet.');
+  const skillItems = useMemo(() => {
+    return isOwnProfile ? userSkills : publicUserSkills;
+  }, [isOwnProfile, userSkills, publicUserSkills]);
+  const showSkillLoading = loadingProfile && skillItems.length === 0;
   const teachSkills = useMemo(() => {
-    return userSkills
+    return skillItems
       .filter((item) => item?.skill_type === 'teach')
       .map(normalizeTeachSkill)
       .filter(Boolean);
-  }, [userSkills]);
+  }, [skillItems]);
   const learnSkills = useMemo(() => {
-    return userSkills
+    return skillItems
       .filter((item) => item?.skill_type === 'learn')
       .map(normalizeLearnSkill)
       .filter(Boolean);
-  }, [userSkills]);
+  }, [skillItems]);
   const openAddSkills = (tab) => navigate(`/skills?tab=${tab}&add=1`);
   const experience = asArray(profileData.experience).map(normalizeExperience);
   const education = asArray(profileData.education).map(normalizeEducation);
   const swaps = asArray(profileData.swaps || profileData.swap_history);
   const connectionCount = formatCount(pick(profileData.connections_count, profileData.connection_count, profileData.followers_count), '0');
-  const matchCount = formatCount(pick(profileData.matches_count, matches.length || null), '0');
+  const matchCount = formatCount(pick(profileData.matches_count, isOwnProfile ? matches.length || null : null), '0');
   const completedSwaps = formatCount(pick(stats.total_sessions, profileData.posts_count, profileData.activity_count), '0');
   const avgRating = Number(stats.avg_rating);
-  const ratingLabel = Number.isFinite(avgRating) && avgRating > 0 ? `${avgRating.toFixed(1)}★` : '4.9★';
+  const ratingLabel = Number.isFinite(avgRating) ? `${avgRating.toFixed(1)}★` : '0.0★';
+  const creditsLabel = formatCount(stats.credits, '0');
   const isAvailable = toBoolean(profileData.is_available, true);
   const sessionTypes = asArray(profileData.session_types || profileData.preferred_session_types);
   const weeklyAvailability = pick(profileData.weekly_availability, profileData.availability_note, profileData.schedule_note, '');
   const communicationTools = asArray(profileData.communication_tools || profileData.preferred_tools);
 
   useEffect(() => {
-    console.log('[Profile] Resolved media render URLs:', {
-      rawPhoto,
-      photoUrl,
-      rawBanner,
-      bannerUrl,
-      mediaVersion,
-    });
-  }, [rawPhoto, photoUrl, rawBanner, bannerUrl, mediaVersion]);
+    if (!isOwnProfile) {
+      console.log(profileData);
+    }
+  }, [isOwnProfile, profileData]);
 
   const handleProfileSave = async (formData) => {
     try {
-      const payloadFields = formData instanceof FormData ? Array.from(formData.keys()) : Object.keys(formData);
-      console.log('[Profile] Updating profile with fields:', payloadFields);
       const response = await updateProfile(formData);
-      console.log('UPDATE RESPONSE:', response.data);
       const updatedProfile = unwrap(response);
       const nextMediaVersion = Date.now();
       localStorage.setItem(PROFILE_MEDIA_VERSION_KEY, String(nextMediaVersion));
       setMediaVersion(nextMediaVersion);
 
       if (updatedProfile) {
-        applyProfile(updatedProfile, nextMediaVersion);
-        console.log('[Profile] Profile updated:', updatedProfile);
-        console.log('[Profile] Availability response value:', {
-          raw: updatedProfile?.is_available,
-          parsed: toBoolean(updatedProfile?.is_available, true),
-        });
-        console.log('[Profile] Updated media URLs:', {
-          profileImage: getProfileImage(updatedProfile),
-          bannerImage: getBannerImage(updatedProfile),
-        });
+        applyProfile(updatedProfile, nextMediaVersion, true);
       }
 
       const freshProfile = await fetchProfileData({ includeRelated: false });
       if (freshProfile) {
-        applyProfile(freshProfile, nextMediaVersion);
-        console.log('[Profile] Final availability after refetch:', {
-          raw: freshProfile?.is_available,
-          parsed: toBoolean(freshProfile?.is_available, true),
-        });
-        console.log('[Profile] Refetched media URLs:', {
-          profileImage: getProfileImage(freshProfile),
-          bannerImage: getBannerImage(freshProfile),
-        });
+        applyProfile(freshProfile, nextMediaVersion, true);
       }
 
       toast.success('Profile updated');
@@ -680,15 +688,17 @@ export default function Profile() {
                   </div>
                 )}
               </div>
-              <button onClick={() => setShowEditProfile(true)} className="mb-2 px-4 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[13px] font-medium hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] transition-all flex items-center gap-1.5">
-                <HiPencil size={14} /> Edit Profile
-              </button>
+              {isOwnProfile ? (
+                <button onClick={() => setShowEditProfile(true)} className="mb-2 px-4 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[13px] font-medium hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] transition-all flex items-center gap-1.5">
+                  <HiPencil size={14} /> Edit Profile
+                </button>
+              ) : null}
             </div>
 
             {/* Identity */}
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-2xl font-extrabold text-[var(--text-primary)]">{displayName}</h1>
-              <HiBadgeCheck className="text-[var(--accent-primary)] w-5 h-5" />
+              {profileData?.profile?.is_verified ? <HiBadgeCheck className="text-[var(--accent-primary)] w-5 h-5" /> : null}
             </div>
             <p className="text-[15px] text-[var(--text-secondary)] mb-3">
               {loadingProfile && !profile ? 'Loading profile...' : headline}
@@ -700,36 +710,50 @@ export default function Profile() {
               <span className="flex items-center gap-1"><HiGlobe size={14} /> {isAvailable ? 'Available for Remote Swaps' : 'Not available for swaps'}</span>
             </div>
 
-            <div className="flex items-center gap-2 text-[13px] mb-6 bg-[var(--bg-secondary)] w-fit px-4 py-2 rounded-xl border border-[var(--border-default)]">
+            <div className="flex flex-wrap items-center gap-2 text-[13px] mb-6 bg-[var(--bg-secondary)] w-fit px-4 py-2 rounded-xl border border-[var(--border-default)]">
               <span className="font-bold text-[var(--accent-primary)]">{connectionCount}</span>
               <span className="text-[var(--text-secondary)]">Connections</span>
               <span className="text-[var(--border-default)]">·</span>
               <span className="font-bold text-[var(--accent-secondary)]">{matchCount}</span>
               <span className="text-[var(--text-secondary)]">Skill Matches</span>
+              <span className="text-[var(--border-default)]">·</span>
+              <span className="font-bold text-[var(--accent-green)]">{creditsLabel}</span>
+              <span className="text-[var(--text-secondary)]">Credits</span>
             </div>
 
             {/* Action buttons */}
-            <div className="flex flex-wrap gap-3">
-              <button className="btn-primary flex items-center gap-2 px-6">
-                <HiUserAdd size={18} /> Connect
-              </button>
-              <button className="btn-ghost flex items-center gap-2 px-6">
-                <HiChat size={18} /> Message
-              </button>
-              <button className="btn-ghost flex items-center gap-2 px-6">
-                <HiLightningBolt size={18} /> Swap Skills
-              </button>
-              <button className="w-11 h-11 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-all flex items-center justify-center">
-                <HiDotsHorizontal size={20} />
-              </button>
-            </div>
+            {isOwnProfile ? (
+              <div className="flex flex-wrap gap-3">
+                <button className="btn-primary flex items-center gap-2 px-6">
+                  <HiUserAdd size={18} /> Connect
+                </button>
+                <button className="btn-ghost flex items-center gap-2 px-6">
+                  <HiChat size={18} /> Message
+                </button>
+                <button className="btn-ghost flex items-center gap-2 px-6">
+                  <HiLightningBolt size={18} /> Swap Skills
+                </button>
+                <button className="w-11 h-11 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-all flex items-center justify-center">
+                  <HiDotsHorizontal size={20} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => navigate('/matches')} className="btn-primary flex items-center gap-2 px-6">
+                  <HiUserAdd size={18} /> Back to Matches
+                </button>
+                <button onClick={() => navigate('/sessions')} className="btn-ghost flex items-center gap-2 px-6">
+                  <HiLightningBolt size={18} /> Request Session
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
 
         {/* ── CARD 2: ABOUT ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <Card className="group">
-            <CardHeader icon="📝" title="About" action={<EditBtn onClick={() => setShowEditProfile(true)} />} />
+            <CardHeader icon="📝" title="About" action={isOwnProfile ? <EditBtn onClick={() => setShowEditProfile(true)} /> : null} />
             <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">{bio}</p>
           </Card>
         </motion.div>
@@ -737,16 +761,17 @@ export default function Profile() {
         {/* ── CARD 3: SKILLS I OFFER ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
           <Card>
-            <CardHeader icon="⚡" title="Skills I Can Teach" action={
+            <CardHeader icon="⚡" title="Skills I Can Teach" action={isOwnProfile ? (
               <button onClick={() => openAddSkills('teaching')} className="px-3 py-1.5 text-[12px] rounded-lg border border-[var(--accent-primary)] text-[var(--accent-primary)] font-medium hover:bg-[rgba(124,111,247,0.1)] transition-all flex items-center gap-1">
                 <HiPlus size={13} /> Add Skill
               </button>
-            } />
+            ) : null} />
             <ProfileSkillsSection
               type="teach"
               skills={teachSkills}
-              loading={loadingProfile}
+              loading={showSkillLoading}
               onAdd={() => openAddSkills('teaching')}
+              canAdd={isOwnProfile}
             />
           </Card>
         </motion.div>
@@ -754,16 +779,17 @@ export default function Profile() {
         {/* ── CARD 4: SKILLS I WANT ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
-            <CardHeader icon="🎯" title="Skills I Want to Learn" action={
+            <CardHeader icon="🎯" title="Skills I Want to Learn" action={isOwnProfile ? (
               <button onClick={() => openAddSkills('learning')} className="px-3 py-1.5 text-[12px] rounded-lg border border-[var(--accent-secondary)] text-[var(--accent-secondary)] font-medium hover:bg-[rgba(249,112,102,0.1)] transition-all flex items-center gap-1">
                 <HiPlus size={13} /> Add Skill
               </button>
-            } />
+            ) : null} />
             <ProfileSkillsSection
               type="learn"
               skills={learnSkills}
-              loading={loadingProfile}
+              loading={showSkillLoading}
               onAdd={() => openAddSkills('learning')}
+              canAdd={isOwnProfile}
             />
           </Card>
         </motion.div>
@@ -771,7 +797,7 @@ export default function Profile() {
         {/* ── CARD 5: EXPERIENCE ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
           <Card>
-            <CardHeader icon="💼" title="Experience" action={<AddBtn />} />
+            <CardHeader icon="💼" title="Experience" action={isOwnProfile ? <AddBtn /> : null} />
             {experience.length > 0 ? (
               <div className="space-y-0">
                 {experience.map((exp, i) => (
@@ -787,7 +813,7 @@ export default function Profile() {
                           <p className="text-[14px] text-[var(--text-secondary)] font-medium">{exp.company} · {exp.type}</p>
                           <p className="text-[13px] text-[var(--text-muted)] mt-0.5">{exp.duration} · {exp.location}</p>
                         </div>
-                        <EditBtn />
+                        {isOwnProfile ? <EditBtn /> : null}
                       </div>
                       {exp.description && (
                         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.65] mt-3 mb-3">{exp.description}</p>
@@ -812,7 +838,7 @@ export default function Profile() {
         {/* ── CARD 6: EDUCATION ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
           <Card>
-            <CardHeader icon="🎓" title="Education" action={<AddBtn />} />
+            <CardHeader icon="🎓" title="Education" action={isOwnProfile ? <AddBtn /> : null} />
             {education.length > 0 ? (
               <div className="space-y-0">
                 {education.map((edu, i) => (
@@ -828,7 +854,7 @@ export default function Profile() {
                           <p className="text-[14px] text-[var(--text-secondary)] font-medium">{edu.institution}</p>
                           <p className="text-[13px] text-[var(--text-muted)] mt-0.5">{edu.years}</p>
                         </div>
-                        <EditBtn />
+                        {isOwnProfile ? <EditBtn /> : null}
                       </div>
                       {edu.description && (
                         <p className="text-[14px] text-[var(--text-secondary)] leading-[1.65] mt-3">{edu.description}</p>
@@ -853,7 +879,7 @@ export default function Profile() {
 
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              {[[completedSwaps, 'Swaps Completed'], [ratingLabel, 'Avg Rating'], ['8', 'Active Swaps']].map(([val, label]) => (
+              {[[completedSwaps, 'Swaps Completed'], [ratingLabel, 'Avg Rating'], [matchCount, 'Skill Matches']].map(([val, label]) => (
                 <div key={label} className="rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] p-4 text-center">
                   <p className="text-2xl font-bold text-[var(--accent-primary)]">{val}</p>
                   <p className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium">{label}</p>
@@ -900,7 +926,7 @@ export default function Profile() {
         {/* ── CARD 8: AVAILABILITY ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card>
-            <CardHeader icon="📅" title="Availability" action={<EditBtn onClick={() => setShowEditProfile(true)} />} />
+            <CardHeader icon="📅" title="Availability" action={isOwnProfile ? <EditBtn onClick={() => setShowEditProfile(true)} /> : null} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               <div className="space-y-6">
@@ -964,7 +990,7 @@ export default function Profile() {
 
       </div>
 
-      {showEditProfile && (
+      {isOwnProfile && showEditProfile && (
         <EditProfileModal
           profile={profileData}
           photoUrl={photoUrl}

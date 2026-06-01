@@ -50,6 +50,7 @@ function AnimatedRoutes() {
             <Route path="/feed" element={<Feed />} />
             <Route path="/matches" element={<Matches />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:user_id" element={<Profile />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/skills" element={<Skills />} />

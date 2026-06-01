@@ -66,6 +66,8 @@ class UserSkillDeleteView(APIView):
 
 
 class MatchFeedview(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         matches = get_matches_for_user(request.user)
         serializer = UserSerializer(matches, many=True)

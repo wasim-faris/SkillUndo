@@ -33,6 +33,12 @@ const SKILL_TYPE_LABEL = {
 const getSkillId = (item) => item?.skill?.id || item?.skill_id || item?.id;
 const getSkillName = (item) => item?.skill?.name || item?.name || 'Untitled skill';
 const getSkillCategory = (item) => item?.skill?.category || item?.category || 'Other';
+const matchesSkillSearch = (item, query) => {
+  if (!query) return true;
+  const name = getSkillName(item).toLowerCase();
+  const category = getSkillCategory(item).toLowerCase();
+  return name.includes(query) || category.includes(query);
+};
 
 const normalizeUserSkill = (item) => {
   if (!item) return null;
@@ -220,18 +226,25 @@ export default function Skills() {
   const activeSkillType = activeMeta.apiType;
   const normalizedUserSkills = useMemo(() => normalizeUserSkills(userSkills), [userSkills]);
   const selectedSkillIds = useMemo(() => buildSelectedSkillIds(normalizedUserSkills), [normalizedUserSkills]);
-  const currentSkills = normalizedUserSkills.filter((s) => s?.skill_type === activeSkillType);
+  const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search]);
+  const currentSkills = useMemo(
+    () => normalizedUserSkills.filter((s) => s?.skill_type === activeSkillType),
+    [activeSkillType, normalizedUserSkills],
+  );
+  const filteredCurrentSkills = useMemo(
+    () => currentSkills.filter((skill) => matchesSkillSearch(skill, normalizedSearch)),
+    [currentSkills, normalizedSearch],
+  );
 
   const filteredGrouped = useMemo(() => {
-    const lower = search.toLowerCase();
-    const filtered = allSkills.filter((s) => getSkillName(s).toLowerCase().includes(lower));
+    const filtered = allSkills.filter((skill) => matchesSkillSearch(skill, normalizedSearch));
     return filtered.reduce((acc, skill) => {
       const cat = getSkillCategory(skill);
       if (!acc[cat]) acc[cat] = [];
       acc[cat].push(skill);
       return acc;
     }, {});
-  }, [allSkills, search]);
+  }, [allSkills, normalizedSearch]);
   const visibleSkillCount = useMemo(() => {
     return Object.values(filteredGrouped).reduce((sum, skills) => sum + skills.length, 0);
   }, [filteredGrouped]);
@@ -356,7 +369,7 @@ export default function Skills() {
                         <div key={i} className="h-10 w-36 bg-[var(--bg-secondary)] animate-pulse rounded-full" />
                       ))}
                     </div>
-                  ) : currentSkills.length === 0 ? (
+                  ) : filteredCurrentSkills.length === 0 ? (
                     <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -365,12 +378,16 @@ export default function Skills() {
                       <div className="w-20 h-20 bg-[var(--bg-secondary)] rounded-2xl flex items-center justify-center text-[var(--text-muted)] mb-6">
                         <HiLightningBolt size={48} />
                       </div>
-                      <p className="text-[var(--text-secondary)] font-medium text-lg mb-8">{activeMeta.empty}</p>
-                      <Button onClick={() => setShowAdd(true)} variant="outline">Add Skills</Button>
+                      <p className="text-[var(--text-secondary)] font-medium text-lg mb-8">
+                        {currentSkills.length === 0 ? activeMeta.empty : 'No skills match your search.'}
+                      </p>
+                      {currentSkills.length === 0 ? (
+                        <Button onClick={() => setShowAdd(true)} variant="outline">Add Skills</Button>
+                      ) : null}
                     </motion.div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {currentSkills.map((us) => (
+                      {filteredCurrentSkills.map((us) => (
                         <CurrentSkillCard
                           key={us.id}
                           userSkill={us}
@@ -395,7 +412,7 @@ export default function Skills() {
                     <div>
                       <h3 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">Browse Skills</h3>
                       <p className="mt-1 text-[11px] font-medium text-[var(--text-muted)]">
-                        {currentSkills.length} selected · {availableSkillCount} available
+                        {filteredCurrentSkills.length} shown · {currentSkills.length} selected · {availableSkillCount} available
                       </p>
                     </div>
                     <button onClick={() => setShowAdd(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
@@ -425,7 +442,7 @@ export default function Skills() {
                    </div>
                  </div>
 
-                 <div key={`${activeTab}-${search}`} className="min-h-[220px] max-h-[min(58vh,560px)] overflow-y-auto overscroll-contain touch-pan-y scroll-smooth space-y-6 pr-2 pb-6 custom-scrollbar [scrollbar-gutter:stable]">
+                 <div className="min-h-[220px] max-h-[min(58vh,560px)] overflow-y-auto overscroll-contain touch-pan-y scroll-smooth space-y-6 pr-2 pb-6 custom-scrollbar [scrollbar-gutter:stable]">
                    {Object.keys(filteredGrouped).length === 0 ? (
                      <div className="text-center py-12">
                         <p className="text-[var(--text-secondary)] font-medium">No skills found.</p>

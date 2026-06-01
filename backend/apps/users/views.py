@@ -1,4 +1,7 @@
 from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from apps.skills.serializers import UserSkillSerializer
+from apps.skills.services import get_user_skills
 from .serializers import (
     RegisterSerializer,
     LoginSerializer,
@@ -182,3 +185,42 @@ class PasswordResetConfirmView(APIView):
         if not token:
             return error_response(message=serializer.errors, status_code=400)
         return success_response(message="Password changed succesfully", status_code=200)
+
+
+class PublicProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            user = (
+                User.objects.select_related(
+                    "profile",
+                )
+                .prefetch_related("user_skills")
+                .get(id=user_id)
+            )
+            print(user.email)
+            print(user.user_skills.all())
+        except User.DoesNotExist:
+            return error_response(message="User not found", status_code=404)
+        return success_response(
+            data=UserSerializer(user).data, message="Profile Fetched successfully"
+        )
+
+
+class PublicUserSkillView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return error_response(message="User not found", status_code=404)
+        skills = get_user_skills(user)
+        serializer = UserSkillSerializer(
+            skills, many=True, context={"request": request}
+        )
+
+        return success_response(
+            data=serializer.data, message="User Skill fetched successfully"
+        )
