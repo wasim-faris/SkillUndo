@@ -80,6 +80,8 @@ class AcceptSessionView(APIView):
         session = get_object_or_404(SessionRequest, id=session_id)
         result, error = accept_session_request(session, request.user)
 
+        print(result)
+
         if not result:
             return error_response(message=error, status_code=400)
         return success_response(
