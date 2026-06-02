@@ -3,8 +3,15 @@ from .models import Message
 
 
 class SendMessageSerializer(serializers.Serializer):
-    receiver_id = serializers.UUIDField()
-    content = serializers.CharField(max_length=1000, trim_whitespace=True)
+    receiver_id = serializers.UUIDField(required=True)
+    content = serializers.CharField(max_length=1000)
+    
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError(
+                "Message cannot be empty"
+            )
+        return value
     
     
 class MessageSerializer(serializers.ModelSerializer):
