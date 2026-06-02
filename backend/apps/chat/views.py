@@ -8,7 +8,11 @@ from apps.chat.serializers import (
     SendMessageSerializer,
     MessageSerializer
 )
-from apps.chat.services import send_message
+from apps.chat.services import (
+    send_message,
+    mark_conversation_as_read,
+    get_conversation
+)
 
 class SendMessageView(APIView):
     permission_classes = [IsAuthenticated]
@@ -31,3 +35,24 @@ class SendMessageView(APIView):
             data=MessageSerializer(message).data,
             message = "Message send successfully"
         )
+        
+class ConversationView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, receiver_id):
+        
+        receiver = get_object_or_404(User, id=receiver_id)
+    
+        mark_conversation_as_read(sender=receiver, receiver=request.user)
+        
+        conversation = get_conversation(user=request.user, other_user=receiver)
+        
+        return success_response(
+            data=MessageSerializer(conversation, many=True).data,
+            message="Coversation fetched succesfully"
+        )
+        
+        
+        
+        
+        
