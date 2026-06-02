@@ -1,9 +1,10 @@
 # Create your models here.
 from django.db import models
 from apps.users.models import User
+from core.base_model import BaseModel
 
 
-class Message(models.Model):
+class Message(BaseModel):
     sender = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -20,8 +21,4 @@ class Message(models.Model):
 
     is_read = models.BooleanField(
         default=False
-    )
-
-    created_at = models.DateTimeField(
-        auto_now_add=True
     )
