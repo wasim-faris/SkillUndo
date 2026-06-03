@@ -711,9 +711,6 @@ export default function Profile() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-[13px] mb-6 bg-[var(--bg-secondary)] w-fit px-4 py-2 rounded-xl border border-[var(--border-default)]">
-              <span className="font-bold text-[var(--accent-primary)]">{connectionCount}</span>
-              <span className="text-[var(--text-secondary)]">Connections</span>
-              <span className="text-[var(--border-default)]">·</span>
               <span className="font-bold text-[var(--accent-secondary)]">{matchCount}</span>
               <span className="text-[var(--text-secondary)]">Skill Matches</span>
               <span className="text-[var(--border-default)]">·</span>
@@ -794,82 +791,7 @@ export default function Profile() {
           </Card>
         </motion.div>
 
-        {/* ── CARD 5: EXPERIENCE ── */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-          <Card>
-            <CardHeader icon="💼" title="Experience" action={isOwnProfile ? <AddBtn /> : null} />
-            {experience.length > 0 ? (
-              <div className="space-y-0">
-                {experience.map((exp, i) => (
-                <div key={i}>
-                  <div className="flex gap-4 group py-2">
-                    <div className="w-12 h-12 shrink-0 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--accent-primary)] font-bold text-sm border border-[var(--border-default)]">
-                      {exp.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[15px] font-bold text-[var(--text-primary)]">{exp.title}</p>
-                          <p className="text-[14px] text-[var(--text-secondary)] font-medium">{exp.company} · {exp.type}</p>
-                          <p className="text-[13px] text-[var(--text-muted)] mt-0.5">{exp.duration} · {exp.location}</p>
-                        </div>
-                        {isOwnProfile ? <EditBtn /> : null}
-                      </div>
-                      {exp.description && (
-                        <p className="text-[14px] text-[var(--text-secondary)] leading-[1.65] mt-3 mb-3">{exp.description}</p>
-                      )}
-                      <div className="flex flex-wrap gap-1.5">
-                        {exp.skills.map(s => (
-                          <span key={s} className="px-2 py-0.5 rounded text-[11px] bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-muted)]">{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  {i < experience.length - 1 && <div className="h-px bg-[var(--border-default)] my-4" />}
-                </div>
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState message="No experience added yet." />
-            )}
-          </Card>
-        </motion.div>
 
-        {/* ── CARD 6: EDUCATION ── */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
-          <Card>
-            <CardHeader icon="🎓" title="Education" action={isOwnProfile ? <AddBtn /> : null} />
-            {education.length > 0 ? (
-              <div className="space-y-0">
-                {education.map((edu, i) => (
-                <div key={i}>
-                  <div className="flex gap-4 group py-2">
-                    <div className="w-12 h-12 shrink-0 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--accent-secondary)] font-bold text-xs border border-[var(--border-default)]">
-                      {edu.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[15px] font-bold text-[var(--text-primary)]">{edu.degree}</p>
-                          <p className="text-[14px] text-[var(--text-secondary)] font-medium">{edu.institution}</p>
-                          <p className="text-[13px] text-[var(--text-muted)] mt-0.5">{edu.years}</p>
-                        </div>
-                        {isOwnProfile ? <EditBtn /> : null}
-                      </div>
-                      {edu.description && (
-                        <p className="text-[14px] text-[var(--text-secondary)] leading-[1.65] mt-3">{edu.description}</p>
-                      )}
-                    </div>
-                  </div>
-                  {i < education.length - 1 && <div className="h-px bg-[var(--border-default)] my-4" />}
-                </div>
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState message="No education added yet." />
-            )}
-          </Card>
-        </motion.div>
 
         {/* ── CARD 7: SWAP HISTORY ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>

@@ -11,36 +11,7 @@ import { getMatches, getUserSkills } from '../api/skills';
 const unwrap = (response) => response?.data?.data ?? response?.data ?? [];
 const asArray = (value) => (Array.isArray(value) ? value : []);
 
-function MatchProgress({ score }) {
-  const radius = 24;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-
-  return (
-    <div className="relative flex h-16 w-16 items-center justify-center">
-      <svg className="h-16 w-16 -rotate-90 transform">
-        <circle strokeWidth="4" stroke="currentColor" fill="transparent" r={radius} cx="32" cy="32" className="text-[var(--border-default)]" />
-        <circle
-          strokeWidth="4"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          stroke="currentColor"
-          fill="transparent"
-          r={radius}
-          cx="32"
-          cy="32"
-          className="text-[var(--accent-primary)] transition-all duration-1000 ease-in-out"
-        />
-      </svg>
-      <span className="absolute text-[12px] font-bold text-[var(--text-primary)]">{score}%</span>
-    </div>
-  );
-}
-
 function MatchCard({ match, delay, onRequest, onViewProfile }) {
-  const score = match.score ?? 90;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -68,7 +39,7 @@ function MatchCard({ match, delay, onRequest, onViewProfile }) {
             </div>
           </div>
         </div>
-        <MatchProgress score={score} />
+
       </div>
 
       <div className="mt-auto grid grid-cols-1 gap-4 sm:grid-cols-2">
