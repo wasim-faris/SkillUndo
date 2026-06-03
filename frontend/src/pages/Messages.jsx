@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { HiSearch, HiOutlinePaperAirplane, HiOutlinePhotograph, HiOutlineEmojiHappy, HiDotsVertical, HiPhone, HiVideoCamera } from 'react-icons/hi';
+import { HiSearch, HiOutlinePaperAirplane, HiOutlinePhotograph, HiOutlineEmojiHappy, HiDotsVertical } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import Avatar from '../components/ui/Avatar';
 
@@ -92,9 +92,6 @@ export default function Messages() {
               </div>
             </div>
             <div className="flex items-center gap-4 text-[var(--text-muted)]">
-              <button className="hover:text-[var(--accent-primary)] transition-colors"><HiPhone size={20} /></button>
-              <button className="hover:text-[var(--accent-primary)] transition-colors"><HiVideoCamera size={20} /></button>
-              <div className="w-[1px] h-6 bg-[var(--border-default)]"></div>
               <button className="hover:text-[var(--text-primary)] transition-colors"><HiDotsVertical size={20} /></button>
             </div>
           </div>

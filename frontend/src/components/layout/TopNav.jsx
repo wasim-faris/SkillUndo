@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { HiLightningBolt, HiBell, HiSearch, HiChat, HiLogout } from 'react-icons/hi';
+import { HiLightningBolt, HiChat, HiLogout } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
 import toast from 'react-hot-toast';
@@ -40,16 +40,7 @@ export default function TopNav() {
             </span>
           </Link>
 
-          {/* Search */}
-          <div className="hidden lg:flex items-center gap-2 px-4 py-2.5 rounded-xl w-80 transition-all focus-within:border-[var(--accent-primary)]"
-               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-default)' }}>
-            <HiSearch size={18} className="text-[var(--text-muted)]" />
-            <input
-              type="text"
-              placeholder="Search for skills or people..."
-              className="bg-transparent border-none text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:ring-0 w-full p-0 outline-none"
-            />
-          </div>
+
         </div>
 
         {/* Right Actions */}
@@ -63,12 +54,7 @@ export default function TopNav() {
             <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--accent-secondary)] rounded-full border-2 border-[var(--bg-card)]"></span>
           </Link>
 
-          <button className="relative group">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-secondary)] border border-[var(--border-default)] group-hover:border-[var(--accent-primary)] group-hover:text-[var(--accent-primary)] text-[var(--text-secondary)] transition-all">
-              <HiBell size={20} />
-            </div>
-            <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--accent-primary)] rounded-full border-2 border-[var(--bg-card)]"></span>
-          </button>
+
 
           <div className="h-6 w-[1px] bg-[var(--border-default)] mx-2"></div>
 
