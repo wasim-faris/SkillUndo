@@ -490,11 +490,7 @@ export default function Skills() {
                  </div>
               </motion.div>
 
-              <div className="card-premium p-6" style={{ background: 'var(--gradient-1)' }}>
-                 <h3 className="text-xl font-bold text-white mb-3">Skill Assessment</h3>
-                 <p className="text-sm text-white/60 font-medium mb-6 leading-relaxed">Validate your expertise with peer reviews to increase your match accuracy by 45%.</p>
-                 <Button variant="secondary" fullWidth size="md">Get Verified</Button>
-              </div>
+
            </div>
         </div>
       </div>

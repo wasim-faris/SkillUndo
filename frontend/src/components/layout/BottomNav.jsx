@@ -1,19 +1,19 @@
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
-  HiHome, 
   HiGlobeAlt, 
-  HiPlusCircle, 
-  HiBell, 
-  HiUserCircle 
+  HiBriefcase,
+  HiChat,
+  HiUserCircle,
+  HiLightningBolt
 } from 'react-icons/hi';
 
-export default function BottomNav({ onAddPost }) {
+export default function BottomNav() {
   const navItems = [
-    { to: '/feed', icon: HiHome, label: 'Home' },
     { to: '/matches', icon: HiGlobeAlt, label: 'Explore' },
-    { action: onAddPost, icon: HiPlusCircle, label: 'Post', special: true },
-    { to: '/notifications', icon: HiBell, label: 'Activity' },
+    { to: '/sessions', icon: HiBriefcase, label: 'Sessions' },
+    { to: '/messages', icon: HiChat, label: 'Messages' },
+    { to: '/skills', icon: HiLightningBolt, label: 'Skills' },
     { to: '/profile', icon: HiUserCircle, label: 'Profile' },
   ];
 

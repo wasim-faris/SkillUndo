@@ -8,7 +8,6 @@ import PublicRoute from './routes/PublicRoute';
 import Auth from './pages/Auth';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import Feed from './pages/Feed';
 import Profile from './pages/Profile';
 import Skills from './pages/Skills';
 import Matches from './pages/Matches';
@@ -32,7 +31,7 @@ function AnimatedRoutes() {
       >
         <Routes location={location}>
           {/* Root Redirect */}
-          <Route path="/" element={<Navigate to="/feed" replace />} />
+          <Route path="/" element={<Navigate to="/matches" replace />} />
           
           {/* Authentication Routes (Public) */}
           <Route element={<PublicRoute />}>
@@ -47,7 +46,6 @@ function AnimatedRoutes() {
 
           {/* Protected Application Routes */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/feed" element={<Feed />} />
             <Route path="/matches" element={<Matches />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/:user_id" element={<Profile />} />
@@ -57,7 +55,7 @@ function AnimatedRoutes() {
           </Route>
 
           {/* Catch-all Redirect */}
-          <Route path="*" element={<Navigate to="/feed" replace />} />
+          <Route path="*" element={<Navigate to="/matches" replace />} />
         </Routes>
       </motion.div>
     </AnimatePresence>

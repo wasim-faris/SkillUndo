@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  HiSquares2X2,
   HiUser,
   HiBolt,
   HiUsers,
+  HiBriefcase,
+  HiChatBubbleLeftRight,
   HiArrowRightOnRectangle,
   HiBars3,
   HiXMark,
@@ -14,10 +15,11 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const navItems = [
-  { to: '/dashboard', icon: HiSquares2X2, label: 'Dashboard' },
-  { to: '/profile', icon: HiUser, label: 'My Profile' },
+  { to: '/matches', icon: HiUsers, label: 'Explore' },
+  { to: '/sessions', icon: HiBriefcase, label: 'Sessions' },
+  { to: '/messages', icon: HiChatBubbleLeftRight, label: 'Messages' },
   { to: '/skills', icon: HiBolt, label: 'My Skills' },
-  { to: '/matches', icon: HiUsers, label: 'Matches' },
+  { to: '/profile', icon: HiUser, label: 'Profile' },
 ];
 
 const linkClass = ({ isActive }) =>
