@@ -9,7 +9,7 @@ def send_message(sender, receiver, content):
 def get_conversation(user, other_user):
     message = Message.objects.filter(
         Q(sender=user, receiver=other_user) | Q(sender=other_user, receiver=user)
-    ).order_by("-created_at")
+    )
 
     return message
 
@@ -43,8 +43,8 @@ def get_chat_list(user):
 
         chat_list.append(
             {
-                "user_id": other_user.user.id,
-                "user": other_user,
+                "user_id": other_user.id,
+                "user_name": other_user.email,
                 "last_message": message.content,
                 "last_message_at": message.created_at,
             }
