@@ -4,6 +4,7 @@ import AppLayout from '../components/layout/AppLayout';
 import Avatar from '../components/ui/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { getChats, getConversation, sendMessage } from '../api/chat';
+import { getPublicProfile } from '../api/auth';
 import toast from 'react-hot-toast';
 
 export default function Messages() {
@@ -29,12 +30,32 @@ export default function Messages() {
     setLoadingContacts(true);
     
     getChats()
-      .then(res => {
+      .then(async res => {
         if (!active) return;
         const chats = res?.data?.data ?? res?.data ?? [];
-        setContacts(chats);
-        if (chats.length > 0 && !activeContact) {
-          setActiveContact(chats[0]);
+        
+        // Enrich each contact with their real profile (name + photo)
+        // from the public profile endpoint. Run all requests in parallel.
+        const enriched = await Promise.all(
+          chats.map(async (chat) => {
+            try {
+              const profileRes = await getPublicProfile(chat.user_id);
+              const profile = profileRes?.data?.data ?? profileRes?.data ?? {};
+              return {
+                ...chat,
+                user_name: profile.name || chat.user_name,
+                user_photo: profile.photo || null,
+              };
+            } catch {
+              return chat;
+            }
+          })
+        );
+
+        if (!active) return;
+        setContacts(enriched);
+        if (enriched.length > 0 && !activeContact) {
+          setActiveContact(enriched[0]);
         }
       })
       .catch(err => {
@@ -59,7 +80,8 @@ export default function Messages() {
     getConversation(activeContact.user_id)
       .then(res => {
         if (!active) return;
-        setMessages(res?.data?.data ?? res?.data ?? []);
+        const msgs = res?.data?.data ?? res?.data ?? [];
+        setMessages(msgs);
         setTimeout(scrollToBottom, 100);
       })
       .catch(err => {
@@ -250,24 +272,49 @@ export default function Messages() {
                       </span>
                     </div>
 
-                    {messages.map(msg => {
-                      const isMe = msg.sender === user?.id;
+                    {messages.map((msg, index) => {
+                      // isMe: if the sender is NOT the contact, we sent it.
+                      const isMe = String(msg.sender) !== String(activeContact.user_id);
+                      const currentSenderId = msg.sender;
+
                       const timeString = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                      // Group consecutive messages from the same sender
+                      const prevMsg = index > 0 ? messages[index - 1] : null;
+                      const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+                      const isPrevSame = prevMsg && String(prevMsg.sender) === String(currentSenderId);
+                      const isNextSame = nextMsg && String(nextMsg.sender) === String(currentSenderId);
+
+                      // Bubble color
+                      const bubbleColor = isMe
+                        ? 'bg-[var(--accent-primary)] text-white'
+                        : 'bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-primary)]';
+
+                      // Rounded corners: flatten the corner closest to the next same-sender bubble
+                      let corners = 'rounded-2xl ';
+                      if (isMe) {
+                        if (isPrevSame && isNextSame) corners = 'rounded-2xl rounded-r-sm ';
+                        else if (isPrevSame)           corners = 'rounded-2xl rounded-tr-sm ';
+                        else if (isNextSame)           corners = 'rounded-2xl rounded-br-sm ';
+                      } else {
+                        if (isPrevSame && isNextSame) corners = 'rounded-2xl rounded-l-sm ';
+                        else if (isPrevSame)           corners = 'rounded-2xl rounded-tl-sm ';
+                        else if (isNextSame)           corners = 'rounded-2xl rounded-bl-sm ';
+                      }
+
+                      const marginTop = isPrevSame ? 'mt-1' : 'mt-5';
+
                       return (
-                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[70%] ${isMe ? 'order-1' : 'order-2'}`}>
-                            <div 
-                              className={`px-4 py-2.5 rounded-2xl ${
-                                isMe 
-                                ? 'bg-[var(--accent-primary)] text-white rounded-br-sm' 
-                                : 'bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-primary)] rounded-bl-sm'
-                              }`}
-                            >
+                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${marginTop}`}>
+                          <div className="max-w-[75%]">
+                            <div className={`px-4 py-2.5 ${bubbleColor} ${corners}`}>
                               <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                             </div>
-                            <p className={`text-[10px] text-[var(--text-muted)] mt-1.5 ${isMe ? 'text-right' : 'text-left'}`}>
-                              {timeString}
-                            </p>
+                            {!isNextSame && (
+                              <p className={`text-[10px] text-[var(--text-muted)] mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
+                                {timeString}
+                              </p>
+                            )}
                           </div>
                         </div>
                       );

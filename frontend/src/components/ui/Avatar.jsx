@@ -15,10 +15,10 @@ const normalizeMediaPath = (url) => {
 const getAssetUrl = (url) => {
   const normalizedUrl = normalizeMediaPath(url);
   if (!normalizedUrl) return null;
+  // Already an absolute URL — return as-is
   if (/^https?:\/\//i.test(normalizedUrl)) return normalizedUrl;
-  if (normalizedUrl.startsWith('/profile_photos/') || normalizedUrl.startsWith('/banners/')) {
-    return normalizedUrl;
-  }
+  // Relative media paths must point to the Django backend, not the Vite dev server.
+  // Without this, historyApiFallback intercepts them and returns index.html.
   return `${API_BASE_URL}${normalizedUrl}`;
 };
 
