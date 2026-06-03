@@ -74,26 +74,63 @@ export default function Messages() {
     if (!activeContact?.user_id) return;
     
     let active = true;
-    setLoadingMessages(true);
+    let pollInterval = null;
+    
+    const fetchMessages = async (isInitial = false) => {
+      if (isInitial) {
+        setLoadingMessages(true);
+      }
+      
+      try {
+        const res = await getConversation(activeContact.user_id);
+        if (!active) return;
+        
+        const msgs = res?.data?.data ?? res?.data ?? [];
+        
+        setMessages(prev => {
+          // If this is the initial load, always set and scroll
+          if (isInitial || prev.length === 0) {
+            setTimeout(scrollToBottom, 100);
+            return msgs;
+          }
+          
+          // Smart update: only update state if the array length changed 
+          // or the last message ID is different, to prevent React flickering
+          const hasNewMessages = prev.length !== msgs.length || 
+            (msgs.length > 0 && prev[prev.length - 1].id !== msgs[msgs.length - 1].id);
+            
+          if (hasNewMessages) {
+            setTimeout(scrollToBottom, 100);
+            return msgs;
+          }
+          
+          return prev; // No change, bail out of state update
+        });
+      } catch (err) {
+        if (!active) return;
+        if (isInitial) toast.error('Failed to load messages.');
+        console.error('[Chat Polling Error]:', err);
+      } finally {
+        if (active && isInitial) setLoadingMessages(false);
+      }
+    };
+
+    // 1. Clear messages for new contact
     setMessages([]);
     
-    getConversation(activeContact.user_id)
-      .then(res => {
-        if (!active) return;
-        const msgs = res?.data?.data ?? res?.data ?? [];
-        setMessages(msgs);
-        setTimeout(scrollToBottom, 100);
-      })
-      .catch(err => {
-        if (!active) return;
-        toast.error('Failed to load messages.');
-        console.error(err);
-      })
-      .finally(() => {
-        if (active) setLoadingMessages(false);
-      });
+    // 2. Initial fetch with loading state
+    fetchMessages(true);
+    
+    // 3. Start polling every 3 seconds without loading state
+    pollInterval = setInterval(() => {
+      fetchMessages(false);
+    }, 3000);
 
-    return () => { active = false; };
+    // 4. Cleanup on unmount or contact change
+    return () => { 
+      active = false; 
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, [activeContact?.user_id]);
 
   const handleSend = async () => {
