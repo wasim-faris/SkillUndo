@@ -49,6 +49,10 @@ class SessionRequest(BaseModel):
 
     meeting_link = models.URLField(blank=True, null=True)
     meeting_link_added_at = models.DateTimeField(null=True, blank=True)
+    
+    session_started_at = models.DateTimeField(null=True, blank=True)
+
+    session_ended_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "session_requests"

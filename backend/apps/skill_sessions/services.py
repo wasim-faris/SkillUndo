@@ -16,6 +16,13 @@ from django.db.models import F
 from django.db.models import Avg
 
 
+#helper func for the session link sharing
+
+def can_join_meeting(session):
+    return (
+        session.status == SESSION_CONFIRMED and timezone.now() >=session.proposed_time - timedelta(minutes=10)
+    )
+
 def send_session_request(sender, validated_data):
     """
     Creates a new session request.
@@ -40,6 +47,7 @@ def accept_session_request(session, user):
     Only receiver can accept.
     Return Updated session or None
     """
+    print("ACCEPT FUNCTION CALLED")
 
     if session.receiver != user:
         return None, "Only receiver can accept the session"
@@ -48,8 +56,17 @@ def accept_session_request(session, user):
         return None, "Session is not pending"
 
     session.status = SESSION_CONFIRMED
+    
+    session.meeting_link = (
+        f"https://meet.jit.si/skillswap-{session.id}"
+    )
+    
+    print("LINK:", session.meeting_link)
+    
+    session.meeting_link_added_at = timezone.now()
+    
     session.save()
-    return session
+    return session, None
 
 
 def decline_session_request(session, user):
@@ -119,12 +136,25 @@ def complete_session(session, user):
 
     if session.status != SESSION_CONFIRMED:
         return None, "Session is not confirmed"
-
+    
     if timezone.now() < session.proposed_time:
         return None, "You cannot complete a session before it start"
 
     if not session.meeting_link:
-        return None, "Please add google Meet link before completing "
+        return None, "Meeting link is required before completing session"
+    
+    if session.session_started_at:
+        print(
+        "CAN COMPLETE AFTER:",
+        session.session_started_at + timedelta(minutes=30)
+    )
+    if not session.session_started_at:
+        return None, "You must join the meeting before completing the session"
+    
+    if timezone.now() < (
+        session.session_started_at + timedelta(minutes=30)
+    ):
+        return None, "Session must run for at least 30 minutes before completion"
 
     if user == session.sender:
         if session.completed_by_sender:
@@ -261,3 +291,8 @@ def get_session_by_id(session_id, user):
         return None
 
     return session
+
+def session_join_time(session):
+    session.session_started_at = timezone.now()
+    session.save()
+    

@@ -6,7 +6,7 @@ from core.constants import MIN_RATING, MAX_RATING
 from apps.skills.models import UserSkill
 from apps.users.models import User
 from django.utils import timezone
-
+from .services import can_join_meeting
 
 class SessionRequestSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
@@ -17,6 +17,8 @@ class SessionRequestSerializer(serializers.ModelSerializer):
     learn_skill = SkillSerializer(read_only=True)
     learn_skill_id = serializers.UUIDField(write_only=True)
     reviewer_ids = serializers.SerializerMethodField()
+    meeting_link = serializers.SerializerMethodField()
+    can_join_meeting = serializers.SerializerMethodField()
 
     class Meta:
         model = SessionRequest
@@ -32,14 +34,26 @@ class SessionRequestSerializer(serializers.ModelSerializer):
             "teach_skill_id",
             "learn_skill",
             "learn_skill_id",
+            "meeting_link",
+            "meeting_link_added_at",
             "reviewer_ids",
             "created_at",
+            "can_join_meeting",
         ]
 
         read_only_fields = ["id", "sender", "status", "created_at"]
+        
 
     def get_reviewer_ids(self, obj):
         return [str(rid) for rid in obj.reviews.values_list("reviewer_id", flat=True)]
+    
+    def get_meeting_link(self, obj):
+        if can_join_meeting(obj):
+            return obj.meeting_link
+        return None
+    
+    def get_can_join_meeting(self, obj):
+        return can_join_meeting(obj)
 
     def validate(self, attrs):
         request = self.context["request"]

@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-
+from django.utils import timezone
 
 from apps.users.models import User
 from .models import SessionRequest
@@ -23,6 +23,7 @@ from .services import (
     get_my_session,
     get_session_by_id,
     add_meeting_link,
+    session_join_time
 )
 from apps.skills.services import get_user_skills
 from core.responses import error_response, success_response
@@ -223,4 +224,18 @@ class AddMeetingLinkView(APIView):
         return success_response(
             data=SessionRequestSerializer(result).data,
             message="Meeting link added successfully",
+        )
+
+class JoinSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, session_id):
+        session = get_object_or_404(SessionRequest, id=session_id)
+        
+        session_join_time(session=session)
+        
+        print(session.session_started_at)
+        
+        return success_response(
+            message="Session joined"
         )
