@@ -563,7 +563,8 @@ export default function Profile() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [fetchProfileData, isOwnProfile, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchProfileData, isOwnProfile, user?.id]);
 
   const profileData = useMemo(
     () => profile || (isOwnProfile ? user : null) || {},

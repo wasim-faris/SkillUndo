@@ -14,7 +14,7 @@ export default function TopNav() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
 
     const fetchUnreadCount = async () => {
       try {
@@ -39,7 +39,7 @@ export default function TopNav() {
       clearInterval(interval);
       window.removeEventListener('unread-count-update', handleUpdate);
     };
-  }, [user]);
+  }, [user?.id]);
 
   const handleLogout = async () => {
     try {
