@@ -1,14 +1,45 @@
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiLightningBolt, HiChat, HiLogout } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
+import { getChats } from '../../api/chat';
 import toast from 'react-hot-toast';
 
 export default function TopNav() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await getChats();
+        const chats = res?.data?.data ?? res?.data ?? [];
+        const count = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
+        setUnreadCount(count);
+      } catch (err) {
+        console.error('Error fetching unread count:', err);
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 4000);
+
+    const handleUpdate = (e) => {
+      setUnreadCount(e.detail);
+    };
+    window.addEventListener('unread-count-update', handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('unread-count-update', handleUpdate);
+    };
+  }, [user?.id]);
 
   const handleLogout = async () => {
     try {
@@ -51,7 +82,9 @@ export default function TopNav() {
               <HiChat size={20} />
             </div>
             {/* Unread badge example */}
-            <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--accent-secondary)] rounded-full border-2 border-[var(--bg-card)]"></span>
+            {unreadCount > 0 && (
+              <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--accent-secondary)] rounded-full border-2 border-[var(--bg-card)]"></span>
+            )}
           </Link>
 
 
