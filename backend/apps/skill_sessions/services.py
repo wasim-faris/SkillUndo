@@ -85,7 +85,7 @@ def cancel_session(session, user):
 
     session.status = SESSION_CANCELLED
     session.save()
-    return session
+    return session,None
 
 
 def add_meeting_link(session, user, link):

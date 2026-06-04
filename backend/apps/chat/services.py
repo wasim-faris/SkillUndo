@@ -41,15 +41,18 @@ def get_chat_list(user):
 
         seen_users.add(other_user.id)
 
+        unread_count = Message.objects.filter(
+            sender=other_user, receiver=user, is_read=False
+        ).count()
+
         chat_list.append(
             {
                 "user_id": other_user.id,
                 "user_name": other_user.email,
                 "last_message": message.content,
                 "last_message_at": message.created_at,
+                "unread_count": unread_count,
             }
         )
-
-        print(chat_list)
 
     return chat_list

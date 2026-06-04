@@ -20,6 +20,7 @@ export default function Messages() {
   const [search, setSearch] = useState('');
   
   const messagesEndRef = useRef(null);
+  const profilesCache = useRef({});
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -27,24 +28,37 @@ export default function Messages() {
 
   useEffect(() => {
     let active = true;
-    setLoadingContacts(true);
-    
-    getChats()
-      .then(async res => {
+    let pollInterval = null;
+
+    const fetchContacts = async (isInitial = false) => {
+      if (isInitial) {
+        setLoadingContacts(true);
+      }
+      
+      try {
+        const res = await getChats();
         if (!active) return;
         const chats = res?.data?.data ?? res?.data ?? [];
         
-        // Enrich each contact with their real profile (name + photo)
-        // from the public profile endpoint. Run all requests in parallel.
         const enriched = await Promise.all(
           chats.map(async (chat) => {
+            if (profilesCache.current[chat.user_id]) {
+              return {
+                ...chat,
+                ...profilesCache.current[chat.user_id]
+              };
+            }
             try {
               const profileRes = await getPublicProfile(chat.user_id);
               const profile = profileRes?.data?.data ?? profileRes?.data ?? {};
-              return {
-                ...chat,
+              const cachedProfile = {
                 user_name: profile.name || chat.user_name,
                 user_photo: profile.photo || null,
+              };
+              profilesCache.current[chat.user_id] = cachedProfile;
+              return {
+                ...chat,
+                ...cachedProfile
               };
             } catch {
               return chat;
@@ -53,22 +67,35 @@ export default function Messages() {
         );
 
         if (!active) return;
-        setContacts(enriched);
-        if (enriched.length > 0 && !activeContact) {
-          setActiveContact(enriched[0]);
-        }
-      })
-      .catch(err => {
-        if (!active) return;
-        toast.error('Failed to load conversations.');
-        console.error(err);
-      })
-      .finally(() => {
-        if (active) setLoadingContacts(false);
-      });
 
-    return () => { active = false; };
-  }, []);
+        // Sort contacts by last_message_at descending
+        const sortedEnriched = enriched.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+
+        setContacts(sortedEnriched.map(c => 
+          activeContact && c.user_id === activeContact.user_id
+            ? { ...c, unread_count: 0 }
+            : c
+        ));
+      } catch (err) {
+        if (!active) return;
+        if (isInitial) toast.error('Failed to load conversations.');
+        console.error(err);
+      } finally {
+        if (active && isInitial) setLoadingContacts(false);
+      }
+    };
+
+    fetchContacts(true);
+
+    pollInterval = setInterval(() => {
+      fetchContacts(false);
+    }, 3000);
+
+    return () => {
+      active = false;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [activeContact?.user_id]);
 
   useEffect(() => {
     if (!activeContact?.user_id) return;
@@ -94,18 +121,57 @@ export default function Messages() {
             return msgs;
           }
           
+          // Check if any read status changed
+          let readStatusChanged = false;
+          if (prev.length === msgs.length) {
+            for (let i = 0; i < msgs.length; i++) {
+              if (prev[i].is_read !== msgs[i].is_read) {
+                readStatusChanged = true;
+                break;
+              }
+            }
+          }
+          
           // Smart update: only update state if the array length changed 
-          // or the last message ID is different, to prevent React flickering
+          // or the last message ID is different, or read status changed
           const hasNewMessages = prev.length !== msgs.length || 
-            (msgs.length > 0 && prev[prev.length - 1].id !== msgs[msgs.length - 1].id);
+            (msgs.length > 0 && prev[prev.length - 1].id !== msgs[msgs.length - 1].id) ||
+            readStatusChanged;
             
           if (hasNewMessages) {
-            setTimeout(scrollToBottom, 100);
+            // DO NOT auto-scroll here during polling. 
+            // It disrupts the user if they are reading older messages.
+            // React will naturally preserve the scroll position because of msg.id keys.
             return msgs;
           }
           
           return prev; // No change, bail out of state update
         });
+        
+        // The backend automatically marks messages as read when fetched.
+        // Immediately clear the unread_count badge in the sidebar for this contact and update the last message preview if changed.
+        if (msgs.length > 0) {
+          const lastMsg = msgs[msgs.length - 1];
+          setContacts(prevContacts => {
+            const updated = prevContacts.map(c => 
+              c.user_id === activeContact.user_id 
+                ? { 
+                    ...c, 
+                    last_message: lastMsg.content, 
+                    last_message_at: lastMsg.created_at, 
+                    unread_count: 0 
+                  } 
+                : c
+            );
+            return updated.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+          });
+        } else {
+          setContacts(prevContacts => prevContacts.map(c => 
+            c.user_id === activeContact.user_id && c.unread_count > 0 
+              ? { ...c, unread_count: 0 } 
+              : c
+          ));
+        }
       } catch (err) {
         if (!active) return;
         if (isInitial) toast.error('Failed to load messages.');
@@ -176,6 +242,11 @@ export default function Messages() {
       setSendingMessage(false);
     }
   };
+
+  useEffect(() => {
+    const totalUnread = contacts.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+    window.dispatchEvent(new CustomEvent('unread-count-update', { detail: totalUnread }));
+  }, [contacts]);
 
   const filteredContacts = contacts.filter(c => 
     c.user_name?.toLowerCase().includes(search.toLowerCase())
@@ -309,9 +380,15 @@ export default function Messages() {
                       </span>
                     </div>
 
-                    {messages.map((msg, index) => {
-                      // isMe: if the sender is NOT the contact, we sent it.
-                      const isMe = String(msg.sender) !== String(activeContact.user_id);
+                    {(() => {
+                      // Find the index of the last message sent by the current user
+                      const lastMyMsgIdx = messages.reduce((lastIdx, msg, idx) => 
+                        String(msg.sender) !== String(activeContact.user_id) ? idx : lastIdx, -1
+                      );
+
+                      return messages.map((msg, index) => {
+                        // isMe: if the sender is NOT the contact, we sent it.
+                        const isMe = String(msg.sender) !== String(activeContact.user_id);
                       const currentSenderId = msg.sender;
 
                       const timeString = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -348,14 +425,25 @@ export default function Messages() {
                               <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                             </div>
                             {!isNextSame && (
-                              <p className={`text-[10px] text-[var(--text-muted)] mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
-                                {timeString}
-                              </p>
+                              <div className={`flex items-center gap-1.5 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                <p className={`text-[10px] text-[var(--text-muted)]`}>
+                                  {timeString}
+                                </p>
+                                {isMe && index === lastMyMsgIdx && (
+                                  <span className="text-[10px] font-semibold tracking-wide flex items-center">
+                                    {msg.is_read ? (
+                                      <span className="text-[#3b82f6]">Seen</span>
+                                    ) : (
+                                      <span className="text-[var(--text-muted)]">Sent</span>
+                                    )}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
                       );
-                    })}
+                    })})()}
                     <div ref={messagesEndRef} />
                   </>
                 )}

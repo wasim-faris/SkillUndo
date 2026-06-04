@@ -116,6 +116,12 @@ class SessionRequestSerializer(serializers.ModelSerializer):
         # 8. check proposed_time is in the future
         if attrs["proposed_time"] <= timezone.now():
             raise serializers.ValidationError("Proposed time must be in the future")
+        
+        # 9 teach skill and learn not be same
+        if attrs["teach_skill_id"]==attrs["learn_skill_id"]:
+            raise serializers.ValidationError(
+                "Teaching and learning skills cannot be the same."
+            )
 
         # store receiver object so service can use it
         attrs["receiver"] = receiver

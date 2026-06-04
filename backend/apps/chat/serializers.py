@@ -23,3 +23,4 @@ class ChatListSerializer(serializers.Serializer):
     user_name = serializers.CharField()
     last_message = serializers.CharField()
     last_message_at = serializers.DateTimeField()
+    unread_count = serializers.IntegerField(default=0)
