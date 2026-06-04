@@ -38,6 +38,7 @@ class SessionRequestSerializer(serializers.ModelSerializer):
             "meeting_link_added_at",
             "reviewer_ids",
             "created_at",
+            "can_join_meeting",
         ]
 
         read_only_fields = ["id", "sender", "status", "created_at"]
