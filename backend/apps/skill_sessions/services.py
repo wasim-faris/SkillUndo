@@ -16,6 +16,13 @@ from django.db.models import F
 from django.db.models import Avg
 
 
+#helper func for the session link sharing
+
+def can_join_meeting(session):
+    return (
+        session.status == SESSION_CONFIRMED and timezone.now() >=session.proposed_time - timedelta(minutes=10)
+    )
+
 def send_session_request(sender, validated_data):
     """
     Creates a new session request.
@@ -271,3 +278,4 @@ def get_session_by_id(session_id, user):
         return None
 
     return session
+
