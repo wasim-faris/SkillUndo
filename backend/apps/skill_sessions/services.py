@@ -136,12 +136,25 @@ def complete_session(session, user):
 
     if session.status != SESSION_CONFIRMED:
         return None, "Session is not confirmed"
-
+    
     if timezone.now() < session.proposed_time:
         return None, "You cannot complete a session before it start"
 
     if not session.meeting_link:
         return None, "Meeting link is required before completing session"
+    
+    if session.session_started_at:
+        print(
+        "CAN COMPLETE AFTER:",
+        session.session_started_at + timedelta(minutes=30)
+    )
+    if not session.session_started_at:
+        return None, "You must join the meeting before completing the session"
+    
+    if timezone.now() < (
+        session.session_started_at + timedelta(minutes=30)
+    ):
+        return None, "Session must run for at least 30 minutes before completion"
 
     if user == session.sender:
         if session.completed_by_sender:
@@ -279,3 +292,7 @@ def get_session_by_id(session_id, user):
 
     return session
 
+def session_join_time(session):
+    session.session_started_at = timezone.now()
+    session.save()
+    

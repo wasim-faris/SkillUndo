@@ -10,6 +10,7 @@ from .views import (
     SubmitReviewView,
     CreditHistoryView,
     AddMeetingLinkView,
+    JoinSessionView,
 )
 
 urlpatterns = [
@@ -35,4 +36,9 @@ urlpatterns = [
     ),
     path("<uuid:session_id>/review/", SubmitReviewView.as_view(), name="submit-review"),
     path("credits/", CreditHistoryView.as_view(), name="credit-history"),
+    path(
+    "<uuid:session_id>/join/",
+    JoinSessionView.as_view(),
+    name="join-session",
+)
 ]

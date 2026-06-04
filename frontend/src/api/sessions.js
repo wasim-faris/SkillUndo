@@ -26,6 +26,9 @@ export const completeSession = (sessionId) =>
 export const submitSessionReview = (sessionId, payload) =>
   api.post(`/api/v1/sessions/${sessionId}/review/`, payload);
 
+export const joinSession = (sessionId) =>
+  api.post(`/api/v1/sessions/${sessionId}/join/`);
+
 export const getCreditHistory = () =>
   api.get('/api/v1/sessions/credits/');
 
