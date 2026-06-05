@@ -4,7 +4,7 @@ from .views import NotificationView,MarkNotificationAsReadView,NotificationUnrea
 urlpatterns = [
     path("", NotificationView.as_view(), name="notification-list"),
     path(
-    "<uuid:id>/read/",
+    "<uuid:notification_id>/read/",
     MarkNotificationAsReadView.as_view(),
     name="mark-notification-read",
 ),

@@ -100,6 +100,14 @@ def cancel_session(session, user):
 
     session.status = SESSION_CANCELLED
     session.save()
+    
+    create_notifications(
+        user=session.receiver,
+        title="session cancelled",
+        message="Session has been cancelled",
+        notification_type="session"
+    )
+    
     return session,None
 
 
