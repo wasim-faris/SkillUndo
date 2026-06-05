@@ -11,6 +11,7 @@ from .views import (
     CreditHistoryView,
     AddMeetingLinkView,
     JoinSessionView,
+    RecentActivityView
 )
 
 urlpatterns = [
@@ -41,4 +42,9 @@ urlpatterns = [
         JoinSessionView.as_view(),
         name="join-session",
     ),
+    path(
+    "activity/<uuid:user_id>/",
+    RecentActivityView.as_view(),
+    name="recent-activity",
+),
 ]

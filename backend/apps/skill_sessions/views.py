@@ -8,6 +8,7 @@ from .serializers import (
     SessionRequestSerializer,
     ReviewSerializer,
     CreditTransactionSerializer,
+    RecentActivitySerializer,
 )
 
 from apps.users.serializers import UserSerializer
@@ -23,6 +24,7 @@ from .services import (
     get_session_by_id,
     add_meeting_link,
     record_join_time,
+    get_recent_activity,
 )
 from apps.skills.services import get_user_skills
 from core.responses import error_response, success_response
@@ -237,3 +239,21 @@ class JoinSessionView(APIView):
         print(session.session_started_at)
 
         return success_response(message="Session joined")
+    
+class RecentActivityView(APIView):
+    
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, user_id):
+        
+        user = get_object_or_404(User, id=user_id)
+        
+        activity = get_recent_activity(user)
+        
+        print(RecentActivitySerializer)
+        serializer = RecentActivitySerializer(activity, many=True)
+        
+        return success_response(
+            data=serializer.data,
+            message="Session activity fetched successfuly"
+        )

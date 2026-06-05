@@ -13,7 +13,7 @@ from core.constants import (
     CREDIT_EXPIRY_DAYS,
 )
 from .models import CreditTransaction
-from django.db.models import F
+from django.db.models import F,Q
 from django.db.models import Avg
 
 
@@ -329,3 +329,8 @@ def mark_session_joined(session):
         session.status == SESSION_CONFIRMED
         and timezone.now() >= session.proposed_time - timedelta(minutes=10)
     )
+    
+def get_recent_activity(user):
+    return SessionRequest.objects.filter(
+        Q(sender=user) | Q(receiver=user)
+    ).order_by("-created_at")[:5]
