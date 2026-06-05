@@ -43,6 +43,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
+    reliability_score = serializers.SerializerMethodField()
     class Meta:
         model = Profile
         fields = [
@@ -51,10 +52,21 @@ class ProfileSerializer(serializers.ModelSerializer):
             "credits",
             "is_verified",
             "cancelled_sessions",
+            "reliability_score",
         ]
 
         # used to only show in the frontend they cant edit this one
         read_only_fields = fields
+        
+    def get_reliability_score(self, obj):
+        total = obj.total_sessions + obj.cancelled_sessions
+        
+        if total==0:
+            return 100.00
+        
+        return round(
+            (obj.total_sessions/total) * 100, 2
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):
