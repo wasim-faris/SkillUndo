@@ -398,7 +398,7 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onSubmit={handleSubmit}
-        className="card-premium flex w-full max-w-2xl flex-col overflow-hidden"
+        className="card-premium flex w-full max-h-[85vh] max-w-xl flex-col overflow-hidden"
       >
         <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 pb-4 pt-5 sm:px-6">
           <div>
@@ -414,7 +414,7 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
           </button>
         </div>
 
-        <div className="max-h-[calc(100vh-14rem)] overflow-y-auto px-5 py-5 sm:max-h-[calc(100vh-13rem)] sm:px-6">
+        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
         <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FilePicker id="profile-photo" label="Profile image" file={photoFile} previewUrl={photoPreview} onChange={setPhotoFile} />
@@ -720,27 +720,12 @@ export default function Profile() {
             </div>
 
             {/* Action buttons */}
-            {isOwnProfile ? (
+            {!isOwnProfile && (
               <div className="flex flex-wrap gap-3">
-                <button className="btn-primary flex items-center gap-2 px-6">
-                  <HiUserAdd size={18} /> Connect
-                </button>
-                <button className="btn-ghost flex items-center gap-2 px-6">
+                <button onClick={() => navigate('/messages', { state: { openChatWith: { user_id: userId, user_name: displayName, user_photo: photoUrl } } })} className="flex items-center justify-center gap-2 px-6 py-[10px] rounded-[10px] border border-[var(--accent-primary)] text-[var(--accent-primary)] font-medium hover:bg-[rgba(124,111,247,0.1)] transition-all">
                   <HiChat size={18} /> Message
                 </button>
-                <button className="btn-ghost flex items-center gap-2 px-6">
-                  <HiLightningBolt size={18} /> Swap Skills
-                </button>
-                <button className="w-11 h-11 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-all flex items-center justify-center">
-                  <HiDotsHorizontal size={20} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-3">
-                <button onClick={() => navigate('/matches')} className="btn-primary flex items-center gap-2 px-6">
-                  <HiUserAdd size={18} /> Back to Matches
-                </button>
-                <button onClick={() => navigate('/sessions')} className="btn-ghost flex items-center gap-2 px-6">
+                <button onClick={() => navigate('/sessions')} className="btn-primary flex items-center gap-2 px-6">
                   <HiLightningBolt size={18} /> Request Session
                 </button>
               </div>

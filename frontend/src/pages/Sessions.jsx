@@ -161,7 +161,7 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
       <motion.div
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="card-premium flex max-h-[92vh] w-full max-w-lg flex-col"
+        className="card-premium flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden"
       >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-default)] px-4 py-3">
           <div>
@@ -556,7 +556,7 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
         </div>
       )}
 
-      <div className="mt-auto flex gap-2 border-t border-[var(--border-default)] pt-3">
+      <div className="mt-auto flex flex-wrap gap-2 border-t border-[var(--border-default)] pt-3 [&>button]:min-w-[85px]">
         <button onClick={() => onOpenDetail(session.id)} className="btn-ghost flex-1 !py-1.5 text-xs font-bold rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-card)]">
           Details
         </button>
