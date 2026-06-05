@@ -1,8 +1,14 @@
 from .models import Message
 from django.db.models import Q
-
+from apps.notifications.services import create_notifications
 
 def send_message(sender, receiver, content):
+    create_notifications(
+        user=receiver,
+        title="New message",
+        message=f"{sender.name} send you a message",
+        notification_type="chat"
+    )
     return Message.objects.create(sender=sender, receiver=receiver, content=content)
 
 

@@ -23,7 +23,8 @@ from .services import (
     get_my_session,
     get_session_by_id,
     add_meeting_link,
-    session_join_time
+    record_join_time,
+    
 )
 from apps.skills.services import get_user_skills
 from core.responses import error_response, success_response
@@ -232,7 +233,7 @@ class JoinSessionView(APIView):
     def post(self, request, session_id):
         session = get_object_or_404(SessionRequest, id=session_id)
         
-        session_join_time(session=session)
+        record_join_time(session=session)
         
         print(session.session_started_at)
         

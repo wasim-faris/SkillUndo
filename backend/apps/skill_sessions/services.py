@@ -3,6 +3,7 @@ from datetime import timedelta
 from .models import SessionRequest, Review
 from apps.skills.models import Skill
 from apps.users.models import Profile
+from apps.notifications.services import create_notifications
 from core.constants import (
     SESSION_PENDING,
     SESSION_CONFIRMED,
@@ -16,12 +17,6 @@ from django.db.models import F
 from django.db.models import Avg
 
 
-#helper func for the session link sharing
-
-def can_join_meeting(session):
-    return (
-        session.status == SESSION_CONFIRMED and timezone.now() >=session.proposed_time - timedelta(minutes=10)
-    )
 
 def send_session_request(sender, validated_data):
     """
@@ -61,11 +56,14 @@ def accept_session_request(session, user):
         f"https://meet.jit.si/skillswap-{session.id}"
     )
     
-    print("LINK:", session.meeting_link)
+    # print("LINK:", session.meeting_link)
     
-    session.meeting_link_added_at = timezone.now()
+    # session.meeting_link_added_at = timezone.now()
     
     session.save()
+    
+    create_notifications(user=session.sender, title="Session accepted", message="Your session request has been accepted", notification_type="session")
+    print("notification created")
     return session, None
 
 
@@ -192,6 +190,12 @@ def award_credit(user):
         reason="Session complete",
         expires_at=timezone.now() + timedelta(days=CREDIT_EXPIRY_DAYS),
     )
+    create_notifications(
+        user=user,
+        title="Credits Earned",
+        message="You earned credits from a completed session",
+        notification_type="credit"
+        )
 
 
 def update_session_count(user):
@@ -292,7 +296,13 @@ def get_session_by_id(session_id, user):
 
     return session
 
-def session_join_time(session):
+def record_join_time(session):
     session.session_started_at = timezone.now()
     session.save()
-    
+
+#helper func to mark session joined when clcking the join
+
+def mark_session_joined(session):
+    return (
+        session.status == SESSION_CONFIRMED and timezone.now() >=session.proposed_time - timedelta(minutes=10)
+    )
