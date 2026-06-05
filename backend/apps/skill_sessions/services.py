@@ -17,7 +17,6 @@ from django.db.models import F
 from django.db.models import Avg
 
 
-
 def send_session_request(sender, validated_data):
     """
     Creates a new session request.
@@ -51,18 +50,21 @@ def accept_session_request(session, user):
         return None, "Session is not pending"
 
     session.status = SESSION_CONFIRMED
-    
-    session.meeting_link = (
-        f"https://meet.jit.si/skillswap-{session.id}"
-    )
-    
+
+    session.meeting_link = f"https://meet.jit.si/skillswap-{session.id}"
+
     # print("LINK:", session.meeting_link)
-    
+
     # session.meeting_link_added_at = timezone.now()
-    
+
     session.save()
-    
-    create_notifications(user=session.sender, title="Session accepted", message="Your session request has been accepted", notification_type="session")
+
+    create_notifications(
+        user=session.sender,
+        title="Session accepted",
+        message="Your session request has been accepted",
+        notification_type="session",
+    )
     print("notification created")
     return session, None
 
@@ -100,15 +102,15 @@ def cancel_session(session, user):
 
     session.status = SESSION_CANCELLED
     session.save()
-    
+
     create_notifications(
         user=session.receiver,
         title="session cancelled",
         message="Session has been cancelled",
-        notification_type="session"
+        notification_type="session",
     )
-    
-    return session,None
+
+    return session, None
 
 
 def add_meeting_link(session, user, link):
@@ -142,24 +144,19 @@ def complete_session(session, user):
 
     if session.status != SESSION_CONFIRMED:
         return None, "Session is not confirmed"
-    
+
     if timezone.now() < session.proposed_time:
         return None, "You cannot complete a session before it start"
 
     if not session.meeting_link:
         return None, "Meeting link is required before completing session"
-    
+
     if session.session_started_at:
-        print(
-        "CAN COMPLETE AFTER:",
-        session.session_started_at + timedelta(minutes=30)
-    )
+        print("CAN COMPLETE AFTER:", session.session_started_at + timedelta(minutes=30))
     if not session.session_started_at:
         return None, "You must join the meeting before completing the session"
-    
-    if timezone.now() < (
-        session.session_started_at + timedelta(minutes=30)
-    ):
+
+    if timezone.now() < (session.session_started_at + timedelta(minutes=30)):
         return None, "Session must run for at least 30 minutes before completion"
 
     if user == session.sender:
@@ -202,8 +199,8 @@ def award_credit(user):
         user=user,
         title="Credits Earned",
         message="You earned credits from a completed session",
-        notification_type="credit"
-        )
+        notification_type="credit",
+    )
 
 
 def update_session_count(user):
@@ -304,13 +301,17 @@ def get_session_by_id(session_id, user):
 
     return session
 
+
 def record_join_time(session):
     session.session_started_at = timezone.now()
     session.save()
 
-#helper func to mark session joined when clcking the join
+
+# helper func to mark session joined when clcking the join
+
 
 def mark_session_joined(session):
     return (
-        session.status == SESSION_CONFIRMED and timezone.now() >=session.proposed_time - timedelta(minutes=10)
+        session.status == SESSION_CONFIRMED
+        and timezone.now() >= session.proposed_time - timedelta(minutes=10)
     )

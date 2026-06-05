@@ -157,7 +157,7 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onSubmit={handleSubmit}
-        className="card-premium flex max-h-[92vh] w-full max-w-lg flex-col"
+        className="card-premium flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden"
       >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-default)] px-4 py-3">
           <div>

@@ -120,7 +120,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-72 shrink-0 h-screen sticky top-0 border-r bg-[var(--bg-primary)] border-[var(--border-default)]">
+      <aside className="hidden md:flex flex-col w-72 shrink-0 h-[calc(100vh-120px)] sticky top-[96px] border-r bg-[var(--bg-primary)] border-[var(--border-default)]">
         <SidebarContent />
       </aside>
     </>

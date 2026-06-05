@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { HiSearch, HiOutlinePaperAirplane, HiOutlinePhotograph, HiOutlineEmojiHappy, HiDotsVertical, HiChat } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import Avatar from '../components/ui/Avatar';
@@ -8,22 +9,45 @@ import { getPublicProfile } from '../api/auth';
 import toast from 'react-hot-toast';
 
 export default function Messages() {
+  const location = useLocation();
   const { user } = useAuth();
   const [contacts, setContacts] = useState([]);
   const [activeContact, setActiveContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
+
+  useEffect(() => {
+    const openChatWith = location.state?.openChatWith;
+    if (openChatWith && !activeContact) {
+      setActiveContact(openChatWith);
+      setContacts(prev => {
+        if (!prev.find(c => c.user_id === openChatWith.user_id)) {
+           return [{
+             ...openChatWith,
+             last_message: '',
+             last_message_at: new Date().toISOString(),
+             unread_count: 0
+           }, ...prev];
+        }
+        return prev;
+      });
+      // Clean up the state so it doesn't trigger again on reload
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, activeContact]);
   
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [search, setSearch] = useState('');
   
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const profilesCache = useRef({});
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
@@ -359,7 +383,7 @@ export default function Messages() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6">
                 {loadingMessages ? (
                   <div className="flex justify-center p-4">
                     <span className="text-[var(--text-muted)] text-sm animate-pulse">Loading messages...</span>
@@ -444,20 +468,14 @@ export default function Messages() {
                         </div>
                       );
                     })})()}
-                    <div ref={messagesEndRef} />
+
                   </>
                 )}
               </div>
 
               {/* Input Area */}
               <div className="p-4 border-t border-[var(--border-default)] bg-[var(--bg-primary)] shrink-0">
-                <div className="flex items-center gap-3 bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-xl p-2 pr-3 focus-within:border-[var(--accent-primary)] transition-colors">
-                  <button className="p-2 text-[var(--text-muted)] hover:text-[var(--accent-primary)] transition-colors rounded-lg">
-                    <HiOutlinePhotograph size={22} />
-                  </button>
-                  <button className="p-2 text-[var(--text-muted)] hover:text-[var(--accent-yellow)] transition-colors rounded-lg">
-                    <HiOutlineEmojiHappy size={22} />
-                  </button>
+                <div className="flex items-center gap-3 bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-xl p-2 pl-4 pr-3 focus-within:border-[var(--accent-primary)] transition-colors">
                   <input 
                     type="text" 
                     value={inputText}
