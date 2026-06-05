@@ -59,6 +59,7 @@ class Profile(BaseModel):
     total_sessions = models.IntegerField(default=0)
     credits = models.IntegerField(default=0)
     is_verified = models.BooleanField(default=False)
+    cancelled_sessions = models.IntegerField(default=0)
 
     class Meta:
         db_table = "profiles"
