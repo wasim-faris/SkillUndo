@@ -603,6 +603,7 @@ export default function Profile() {
   const connectionCount = formatCount(pick(profileData.connections_count, profileData.connection_count, profileData.followers_count), '0');
   const matchCount = formatCount(pick(profileData.matches_count, isOwnProfile ? matches.length || null : null), '0');
   const completedSwaps = formatCount(pick(stats.total_sessions, profileData.posts_count, profileData.activity_count), '0');
+  const cancelledSessions = formatCount(pick(stats.cancelled_sessions, profileData.cancelled_sessions, stats.cancelled_sessions_count), '0');
   const avgRating = Number(stats.avg_rating);
   const ratingLabel = Number.isFinite(avgRating) ? `${avgRating.toFixed(1)}★` : '0.0★';
   const creditsLabel = formatCount(stats.credits, '0');
@@ -786,10 +787,15 @@ export default function Profile() {
             <p className="text-[13px] text-[var(--text-muted)] -mt-3 mb-5">Skills exchanged with the community</p>
 
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              {[[completedSwaps, 'Swaps Completed'], [ratingLabel, 'Avg Rating'], [matchCount, 'Skill Matches']].map(([val, label]) => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              {[
+                { val: completedSwaps, label: 'Swaps Completed', color: 'text-[var(--accent-primary)]' },
+                { val: ratingLabel, label: 'Avg Rating', color: 'text-[var(--accent-primary)]' },
+                { val: matchCount, label: 'Skill Matches', color: 'text-[var(--accent-primary)]' },
+                { val: cancelledSessions, label: 'Cancelled Sessions', color: 'text-[var(--accent-secondary)]' }
+              ].map(({ val, label, color }) => (
                 <div key={label} className="rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] p-4 text-center">
-                  <p className="text-2xl font-bold text-[var(--accent-primary)]">{val}</p>
+                  <p className={`text-2xl font-bold ${color}`}>{val}</p>
                   <p className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium">{label}</p>
                 </div>
               ))}

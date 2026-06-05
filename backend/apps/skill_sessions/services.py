@@ -100,11 +100,25 @@ def cancel_session(session, user):
     if session.status == SESSION_CANCELLED:
         return None, "Cannot cancel this session"
 
+    if (
+        session.status == SESSION_CONFIRMED
+        and timezone.now() >= session.proposed_time - timedelta(minutes=30)
+        and timezone.now() < session.proposed_time
+    ):
+        return None, "Cannot cancel within 30 minutes of session start"
+
+    if timezone.now() < session.proposed_time:
+        Profile.objects.filter(user=user).update(
+            cancelled_sessions=F("cancelled_sessions") + 1
+        )
+
     session.status = SESSION_CANCELLED
     session.save()
 
+    other_user = session.receiver if user == session.sender else session.sender
+
     create_notifications(
-        user=session.receiver,
+        user=other_user,
         title="session cancelled",
         message="Session has been cancelled",
         notification_type="session",

@@ -50,6 +50,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "total_sessions",
             "credits",
             "is_verified",
+            "cancelled_sessions",
         ]
 
         # used to only show in the frontend they cant edit this one
