@@ -604,8 +604,19 @@ export default function Profile() {
   const matchCount = formatCount(pick(profileData.matches_count, isOwnProfile ? matches.length || null : null), '0');
   const completedSwaps = formatCount(pick(stats.total_sessions, profileData.posts_count, profileData.activity_count), '0');
   const cancelledSessions = formatCount(pick(stats.cancelled_sessions, profileData.cancelled_sessions, stats.cancelled_sessions_count), '0');
+  const reliabilityScore = profileData.profile?.reliability_score ?? profileData.reliability_score ?? null;
+  const getReliabilityData = (score) => {
+    if (score == null) return null;
+    const num = Number(score);
+    if (isNaN(num)) return null;
+    if (num >= 90) return { color: 'text-[var(--accent-green)]' };
+    if (num >= 75) return { color: 'text-blue-500' };
+    if (num >= 50) return { color: 'text-yellow-500' };
+    return { color: 'text-[var(--accent-secondary)]' };
+  };
+  const reliability = getReliabilityData(reliabilityScore);
   const avgRating = Number(stats.avg_rating);
-  const ratingLabel = Number.isFinite(avgRating) ? `${avgRating.toFixed(1)}★` : '0.0★';
+  const ratingLabel = Number.isFinite(avgRating) ? avgRating.toFixed(1) : '0.0';
   const creditsLabel = formatCount(stats.credits, '0');
   const isAvailable = toBoolean(profileData.is_available, true);
   const sessionTypes = asArray(profileData.session_types || profileData.preferred_session_types);
@@ -787,15 +798,30 @@ export default function Profile() {
             <p className="text-[13px] text-[var(--text-muted)] -mt-3 mb-5">Skills exchanged with the community</p>
 
             {/* Stats row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
               {[
-                { val: completedSwaps, label: 'Swaps Completed', color: 'text-[var(--accent-primary)]' },
-                { val: ratingLabel, label: 'Avg Rating', color: 'text-[var(--accent-primary)]' },
-                { val: matchCount, label: 'Skill Matches', color: 'text-[var(--accent-primary)]' },
-                { val: cancelledSessions, label: 'Cancelled Sessions', color: 'text-[var(--accent-secondary)]' }
-              ].map(({ val, label, color }) => (
-                <div key={label} className="rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] p-4 text-center">
-                  <p className={`text-2xl font-bold ${color}`}>{val}</p>
+                { val: reliability ? `${Number(reliabilityScore)}%` : 'N/A', label: 'Reliability', color: reliability?.color || 'text-[var(--text-muted)]', icon: '🛡️', tooltip: 'Reliability is calculated from completed sessions compared to cancelled sessions. Higher reliability means the user consistently attends and completes scheduled sessions.' },
+                { val: ratingLabel, label: 'Avg Rating', color: 'text-[var(--accent-primary)]', icon: '⭐' },
+                { val: completedSwaps, label: 'Swaps Completed', color: 'text-[var(--accent-primary)]', icon: '📚' },
+                { val: matchCount, label: 'Skill Matches', color: 'text-[var(--accent-primary)]', icon: '🎯' },
+                { val: cancelledSessions, label: 'Cancelled Sessions', color: 'text-[var(--accent-secondary)]', icon: '❌' }
+              ].map(({ val, label, color, icon, tooltip }) => (
+                <div key={label} className="relative group rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] p-4 text-center hover:border-[var(--accent-primary)] transition-colors">
+                  {tooltip && (
+                    <div className="absolute top-2 right-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-help">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg shadow-xl text-[10px] text-[var(--text-secondary)] text-left opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 pointer-events-none">
+                        {tooltip}
+                      </div>
+                    </div>
+                  )}
+                  <p className={`text-2xl font-bold ${color} flex items-center justify-center gap-1.5`}>
+                    {icon && <span className="text-xl">{icon}</span>}
+                    {val}
+                  </p>
                   <p className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium">{label}</p>
                 </div>
               ))}

@@ -61,6 +61,7 @@ class Profile(BaseModel):
     is_verified = models.BooleanField(default=False)
     cancelled_sessions = models.IntegerField(default=0)
 
+
     class Meta:
         db_table = "profiles"
 
