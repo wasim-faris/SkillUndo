@@ -197,3 +197,17 @@ class CreditTransactionSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class RecentActivitySerializer(serializers.ModelSerializer):
+    teach_skill = serializers.CharField(source="teach_skill.name")
+    learn_skill = serializers.CharField(source="learn_skill.name")
+    class Meta:
+        model = SessionRequest
+        fields = [
+            "id",
+            "status",
+            "teach_skill",
+            "learn_skill",
+            "created_at",
+        ]
