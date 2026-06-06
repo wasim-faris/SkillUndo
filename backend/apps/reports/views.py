@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from apps.reports.services import (
     create_report
 )
