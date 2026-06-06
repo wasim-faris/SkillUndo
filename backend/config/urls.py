@@ -27,6 +27,7 @@ urlpatterns = [
     path("api/v1/sessions/", include("apps.skill_sessions.urls")),
     path("api/v1/chat/", include("apps.chat.urls")),
     path("api/v1/notifications/", include("apps.notifications.urls")),
+    path("api/v1/reports/", include("apps.reports.urls")),
 ]
 
 if settings.DEBUG:

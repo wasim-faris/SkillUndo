@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   HiPencil, HiLocationMarker, HiGlobe, HiLightningBolt,
-  HiPlus, HiDotsHorizontal, HiChat, HiUserAdd,
+  HiPlus, HiDotsVertical, HiChat, HiUserAdd,
   HiBadgeCheck, HiPhotograph, HiX,
-  HiCalendar, HiDesktopComputer,
+  HiCalendar, HiDesktopComputer, HiFlag,
 } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../context/AuthContext';
 import { getProfile, getPublicProfile, updateProfile } from '../api/auth';
 import { getMatches, getUserSkills, getPublicUserSkills } from '../api/skills';
+import { getUserActivity } from '../api/sessions';
+import api from '../api/axios';
 
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
@@ -276,6 +279,211 @@ function SectionEmptyState({ message }) {
   );
 }
 
+/* ─── REPORT USER MODAL ─── */
+const REPORT_REASONS = [
+  { value: 'Spam', label: 'Spam' },
+  { value: 'Fake Profile', label: 'Fake Profile' },
+  { value: 'Harassment', label: 'Harassment' },
+  { value: 'Inappropriate Behavior', label: 'Inappropriate Behavior' },
+  { value: 'Other', label: 'Other' },
+];
+
+function ReportUserModal({ userId, displayName, onClose }) {
+  const [reason, setReason] = useState('');
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({ reason: '', description: '', form: '' });
+  const MAX_CHARS = 500;
+  const isSubmitDisabled = submitting || !reason || !description.trim();
+
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, []);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitDisabled) return;
+    setErrors({ reason: '', description: '', form: '' });
+    setSubmitting(true);
+    try {
+      await api.post(`/api/v1/reports/${userId}/report/`, {
+        reason,
+        description: description.trim(),
+      });
+      onClose();
+      toast.success('Report submitted successfully');
+    } catch (err) {
+      const data = err?.response?.data;
+      const reasonError = Array.isArray(data?.reason) ? data.reason[0] : data?.reason;
+      const descriptionError = Array.isArray(data?.description) ? data.description[0] : data?.description;
+      const formError =
+        data?.detail ||
+        data?.message ||
+        (typeof data === 'string' ? data : null) ||
+        (Array.isArray(data?.non_field_errors) ? data.non_field_errors[0] : data?.non_field_errors) ||
+        (typeof data === 'object' && data
+          ? Object.entries(data)
+            .filter(([key]) => !['reason', 'description', 'non_field_errors'].includes(key))
+            .flatMap(([, value]) => Array.isArray(value) ? value : [value])
+            .filter(Boolean)
+            .join(' ')
+          : '') ||
+        'Failed to submit report. Please try again.';
+      setErrors({
+        reason: reasonError ? String(reasonError) : '',
+        description: descriptionError ? String(descriptionError) : '',
+        form: formError,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.97 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        className="card-premium w-full max-w-md flex flex-col"
+        style={{ overflow: 'hidden' }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 pt-6 pb-5 border-b border-[var(--border-default)]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(249,112,102,0.12)', border: '1px solid rgba(249,112,102,0.22)' }}>
+              <HiFlag size={18} style={{ color: 'var(--accent-secondary)' }} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[var(--text-primary)] leading-tight">Report User</h2>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{displayName}</p>
+            </div>
+          </div>
+          <button
+            id="report-modal-close"
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all"
+          >
+            <HiX size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
+          <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+            Help us keep SkillSwap safe by reporting inappropriate behavior or suspicious activity.
+          </p>
+
+          {/* Reason */}
+          <div>
+            <label htmlFor="report-reason" className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
+              Reason
+            </label>
+            <div className="relative">
+              <select
+                id="report-reason"
+                value={reason}
+                onChange={(e) => {
+                  setReason(e.target.value);
+                  setErrors((prev) => ({ ...prev, reason: '', form: '' }));
+                }}
+                className="w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] appearance-none cursor-pointer transition-colors"
+                style={{ colorScheme: 'dark' }}
+              >
+                <option value="" disabled>Select a reason…</option>
+                {REPORT_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label htmlFor="report-description" className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
+              Description
+            </label>
+            <textarea
+              id="report-description"
+              rows={4}
+              maxLength={MAX_CHARS}
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                setErrors((prev) => ({ ...prev, description: '', form: '' }));
+              }}
+              placeholder="Please describe the issue in detail."
+              className="w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] resize-none focus:outline-none focus:border-[var(--accent-primary)] transition-colors placeholder:text-[var(--text-muted)]"
+            />
+            <p className="text-[11px] text-[var(--text-muted)] mt-1.5 text-right">
+              {description.length}/{MAX_CHARS}
+            </p>
+          </div>
+
+          {/* Error */}
+          {(errors.reason || errors.description || errors.form) && (
+            <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl text-[13px] font-medium" style={{ background: 'rgba(249,112,102,0.08)', border: '1px solid rgba(249,112,102,0.22)', color: 'var(--accent-secondary)' }}>
+              <HiX size={15} className="shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                {errors.reason ? <p>Reason: {errors.reason}</p> : null}
+                {errors.description ? <p>Description: {errors.description}</p> : null}
+                {errors.form ? <p>{errors.form}</p> : null}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-1">
+            <button
+              id="report-cancel"
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="btn-ghost px-5 text-sm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              id="report-submit"
+              type="submit"
+              disabled={isSubmitDisabled}
+              className="px-5 py-[10px] rounded-[10px] text-sm font-semibold text-white transition-all disabled:opacity-60 flex items-center gap-2"
+              style={{ background: isSubmitDisabled ? 'rgba(249,112,102,0.6)' : 'var(--accent-secondary)', cursor: isSubmitDisabled ? 'not-allowed' : 'pointer' }}
+            >
+              {submitting ? (
+                <>
+                  <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="3" /><path className="opacity-75" fill="white" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
+                  Submitting…
+                </>
+              ) : (
+                <><HiFlag size={15} /> Submit Report</>
+              )}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 function FilePicker({ id, label, file, previewUrl, onChange }) {
   return (
     <label htmlFor={id} className="block cursor-pointer group">
@@ -415,44 +623,44 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FilePicker id="profile-photo" label="Profile image" file={photoFile} previewUrl={photoPreview} onChange={setPhotoFile} />
-            <FilePicker id="profile-banner" label="Banner image" file={bannerFile} previewUrl={bannerPreview} onChange={setBannerFile} />
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FilePicker id="profile-photo" label="Profile image" file={photoFile} previewUrl={photoPreview} onChange={setPhotoFile} />
+              <FilePicker id="profile-banner" label="Banner image" file={bannerFile} previewUrl={bannerPreview} onChange={setBannerFile} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Name</span>
+                <input value={form.name} onChange={updateField('name')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Headline</span>
+                <input value={form.headline} onChange={updateField('headline')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">City</span>
+                <input value={form.city} onChange={updateField('city')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Language</span>
+                <input value={form.language} onChange={updateField('language')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Bio</span>
+              <textarea value={form.bio} onChange={updateField('bio')} rows={5} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] resize-none focus:outline-none focus:border-[var(--accent-primary)]" />
+            </label>
+
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-3">
+              <span>
+                <span className="block text-[13px] font-bold text-[var(--text-primary)]">Open to skill swaps</span>
+                <span className="block text-[11px] text-[var(--text-muted)] mt-0.5">Show availability on your profile.</span>
+              </span>
+              <input type="checkbox" checked={form.is_available} onChange={updateField('is_available')} className="w-5 h-5 accent-[var(--accent-primary)]" />
+            </label>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="block">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Name</span>
-              <input value={form.name} onChange={updateField('name')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
-            </label>
-            <label className="block">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Headline</span>
-              <input value={form.headline} onChange={updateField('headline')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
-            </label>
-            <label className="block">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">City</span>
-              <input value={form.city} onChange={updateField('city')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
-            </label>
-            <label className="block">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Language</span>
-              <input value={form.language} onChange={updateField('language')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
-            </label>
-          </div>
-
-          <label className="block">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Bio</span>
-            <textarea value={form.bio} onChange={updateField('bio')} rows={5} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] resize-none focus:outline-none focus:border-[var(--accent-primary)]" />
-          </label>
-
-          <label className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-3">
-            <span>
-              <span className="block text-[13px] font-bold text-[var(--text-primary)]">Open to skill swaps</span>
-              <span className="block text-[11px] text-[var(--text-muted)] mt-0.5">Show availability on your profile.</span>
-            </span>
-            <input type="checkbox" checked={form.is_available} onChange={updateField('is_available')} className="w-5 h-5 accent-[var(--accent-primary)]" />
-          </label>
-        </div>
         </div>
 
         <div className="sticky bottom-0 flex justify-end gap-3 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-5 py-4 sm:px-6">
@@ -462,6 +670,122 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
           </button>
         </div>
       </motion.form>
+    </div>
+  );
+}
+
+/* ─── ACTIONS MENU ─── */
+function ProfileActionsMenu({ onReport }) {
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0, btnHeight: 42 });
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
+  // Use raw viewport coords — position:fixed is always relative to the viewport
+  const updatePos = useCallback(() => {
+    if (!btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    setMenuPos({
+      top: rect.top,           // viewport y — do NOT add scrollY for fixed positioning
+      right: window.innerWidth - rect.right,
+      btnHeight: rect.height,
+    });
+  }, []);
+
+  const handleToggle = () => {
+    updatePos();               // always recalculate on every click
+    setOpen((v) => !v);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (btnRef.current && btnRef.current.contains(e.target)) return;
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Close on Escape; reposition on scroll / resize
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onRepos = () => updatePos();
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onRepos, true);
+    window.addEventListener('resize', onRepos);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onRepos, true);
+      window.removeEventListener('resize', onRepos);
+    };
+  }, [open, updatePos]);
+
+  const MENU_HEIGHT = 48;   // single-item row height in px
+  const MENU_WIDTH = 192;  // 12rem
+  const GAP = 8;    // space between button top edge and menu bottom edge
+
+  // Position the menu above the button using fixed viewport coords
+  const dropdownStyle = {
+    position: 'fixed',
+    top: menuPos.top - MENU_HEIGHT - GAP,
+    right: menuPos.right,
+    width: MENU_WIDTH,
+    zIndex: 9999,
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-default)',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    boxShadow: '0 -4px 24px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)',
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        id="profile-actions-menu-btn"
+        ref={btnRef}
+        type="button"
+        onClick={handleToggle}
+        title="More actions"
+        className="w-[42px] h-[42px] flex items-center justify-center rounded-[10px] border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all"
+      >
+        <HiDotsVertical size={18} />
+      </button>
+
+      {/* Portal renders into <body> so no parent overflow:hidden can clip it.
+          AnimatePresence lives INSIDE the portal so it directly wraps the
+          motion.div it needs to track for enter/exit — putting it outside the
+          portal breaks key-tracking and silently suppresses rendering. */}
+      {open && createPortal(
+        <AnimatePresence>
+          <motion.div
+            key="report-menu"
+            ref={menuRef}
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.96 }}
+            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            style={dropdownStyle}
+          >
+            <button
+              id="report-user-btn"
+              type="button"
+              onClick={() => { setOpen(false); onReport(); }}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-medium text-left"
+              style={{ color: 'var(--text-secondary)', background: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(249,112,102,0.08)'; e.currentTarget.style.color = 'var(--accent-secondary)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            >
+              <HiFlag size={15} style={{ color: 'var(--accent-secondary)', opacity: 0.85, flexShrink: 0 }} />
+              Report User
+            </button>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
@@ -479,9 +803,15 @@ export default function Profile() {
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [mediaVersion, setMediaVersion] = useState(getStoredMediaVersion);
   const [failedMediaUrls, setFailedMediaUrls] = useState({ photo: null, banner: null });
   const latestFetchRef = useRef(0);
+
+  // Activity timeline state
+  const [activity, setActivity] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityError, setActivityError] = useState(false);
 
   const applyProfile = useCallback((nextProfile, nextMediaVersion, shouldSyncUser = false) => {
     if (!nextProfile) return;
@@ -565,6 +895,27 @@ export default function Profile() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchProfileData, isOwnProfile, user?.id]);
+
+  // Fetch activity timeline for the profile being viewed
+  const targetUserId = isOwnProfile ? user?.id : userId;
+  const fetchActivity = useCallback(async () => {
+    if (!targetUserId) return;
+    setActivityLoading(true);
+    setActivityError(false);
+    try {
+      const res = await getUserActivity(targetUserId);
+      const data = res?.data?.data ?? res?.data ?? [];
+      setActivity(Array.isArray(data) ? data.slice(0, 5) : []);
+    } catch {
+      setActivityError(true);
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [targetUserId]);
+
+  useEffect(() => {
+    fetchActivity();
+  }, [fetchActivity]);
 
   const profileData = useMemo(
     () => profile || (isOwnProfile ? user : null) || {},
@@ -733,13 +1084,14 @@ export default function Profile() {
 
             {/* Action buttons */}
             {!isOwnProfile && (
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button onClick={() => navigate('/messages', { state: { openChatWith: { user_id: userId, user_name: displayName, user_photo: photoUrl } } })} className="flex items-center justify-center gap-2 px-6 py-[10px] rounded-[10px] border border-[var(--accent-primary)] text-[var(--accent-primary)] font-medium hover:bg-[rgba(124,111,247,0.1)] transition-all">
                   <HiChat size={18} /> Message
                 </button>
                 <button onClick={() => navigate('/sessions')} className="btn-primary flex items-center gap-2 px-6">
                   <HiLightningBolt size={18} /> Request Session
                 </button>
+                <ProfileActionsMenu onReport={() => setShowReportModal(true)} />
               </div>
             )}
           </div>
@@ -791,11 +1143,11 @@ export default function Profile() {
 
 
 
-        {/* ── CARD 7: SWAP HISTORY ── */}
+        {/* ── CARD 7: STATS + RECENT ACTIVITY ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
           <Card>
-            <CardHeader icon="🔄" title="Swap History" />
-            <p className="text-[13px] text-[var(--text-muted)] -mt-3 mb-5">Skills exchanged with the community</p>
+            <CardHeader icon="📈" title="Recent Activity" />
+            <p className="text-[13px] text-[var(--text-muted)] -mt-3 mb-5">Recent learning and teaching activity on SkillSwap</p>
 
             {/* Stats row */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
@@ -812,7 +1164,6 @@ export default function Profile() {
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                       </svg>
-                      {/* Tooltip */}
                       <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg shadow-xl text-[10px] text-[var(--text-secondary)] text-left opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 pointer-events-none">
                         {tooltip}
                       </div>
@@ -827,39 +1178,111 @@ export default function Profile() {
               ))}
             </div>
 
-            {swaps.length > 0 ? (
-              <div className="space-y-0">
-                {swaps.map((swap, i) => (
-                <div key={i}>
-                  <div className="flex items-center gap-4 py-4">
-                    {/* Avatars with arrow */}
-                    <div className="flex items-center gap-2 shrink-0 bg-[var(--bg-secondary)] border border-[var(--border-default)] px-2 py-1.5 rounded-full">
-                      <div className="w-8 h-8 rounded-full bg-[var(--gradient-1)] flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                        {initials}
-                      </div>
-                      <span className="text-[var(--text-muted)] text-sm">⇄</span>
-                      <div className="w-8 h-8 rounded-full bg-[var(--bg-card)] border border-[var(--border-default)] flex items-center justify-center text-[var(--text-primary)] text-xs font-bold">
-                        {pick(swap.initials, getInitials(swap.partner || swap.partner_name))}
+            {/* Activity Timeline */}
+            <div className="border-t border-[var(--border-default)] pt-5">
+              {activityLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 animate-pulse">
+                      <div className="w-9 h-9 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-default)] shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-1/3 rounded bg-[var(--bg-secondary)]" />
+                        <div className="h-2.5 w-1/2 rounded bg-[var(--bg-secondary)]" />
+                        <div className="h-2 w-1/4 rounded bg-[var(--bg-secondary)]" />
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0 ml-2">
-                      <p className="text-[14px] text-[var(--text-primary)] font-medium">
-                        Taught <span className="text-[var(--accent-primary)] font-bold">{pick(swap.taught, swap.taught_skill, 'Skill')}</span> to {pick(swap.partner, swap.partner_name, 'Partner')} · Learned <span className="text-[var(--accent-secondary)] font-bold">{pick(swap.learned, swap.learned_skill, 'Skill')}</span>
-                      </p>
-                      <p className="text-[12px] text-[var(--text-muted)] mt-1">{pick(swap.date, swap.completed_at, swap.created_at, '')} · {pick(swap.sessions, swap.session_count, 0)} sessions</p>
-                    </div>
-                    <div className="shrink-0 flex flex-col items-end gap-1.5">
-                      <Stars count={Number(swap.rating) || 0} />
-                      <StatusBadge status={pick(swap.status, 'Pending')} />
-                    </div>
-                  </div>
-                  {i < swaps.length - 1 && <div className="h-px bg-[var(--border-default)]" />}
+                  ))}
                 </div>
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState message="No swap history yet." />
-            )}
+              ) : activityError ? (
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-default)] flex items-center justify-center text-xl">⚠️</div>
+                  <p className="text-[13px] font-semibold text-[var(--text-primary)]">Unable to load recent activity</p>
+                  <button
+                    onClick={fetchActivity}
+                    className="mt-1 px-4 py-1.5 text-xs font-bold rounded-lg border border-[var(--accent-primary)] text-[var(--accent-primary)] hover:bg-[rgba(124,111,247,0.08)] transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : activity.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-default)] flex items-center justify-center text-xl">📭</div>
+                  <p className="text-[13px] font-semibold text-[var(--text-primary)]">No recent activity yet</p>
+                  <p className="text-[12px] text-[var(--text-muted)] max-w-xs">This user has not completed or participated in any sessions yet.</p>
+                </div>
+              ) : (
+                <div className="relative space-y-0">
+                  {/* Vertical line */}
+                  <div className="absolute left-[17px] top-0 bottom-0 w-px bg-[var(--border-default)]" aria-hidden="true" />
+                  {activity.map((item, i) => {
+                    const isCompleted = item.status === 'completed';
+                    const isCancelled = item.status === 'cancelled';
+                    const teachName = item.teach_skill?.name ?? item.teach_skill ?? '—';
+                    const learnName = item.learn_skill?.name ?? item.learn_skill ?? '—';
+                    const createdAt = item.created_at ? new Date(item.created_at) : null;
+                    const diffMs = createdAt ? Date.now() - createdAt.getTime() : null;
+                    const diffDays = diffMs != null ? Math.floor(diffMs / 86400000) : null;
+                    const timeLabel = diffDays == null ? '' :
+                      diffDays === 0 ? 'Today' :
+                        diffDays === 1 ? 'Yesterday' :
+                          diffDays < 7 ? `${diffDays} days ago` :
+                            diffDays < 14 ? '1 week ago' :
+                              diffDays < 30 ? `${Math.floor(diffDays / 7)} weeks ago` :
+                                diffDays < 60 ? '1 month ago' :
+                                  `${Math.floor(diffDays / 30)} months ago`;
+
+                    const dotColor = isCompleted
+                      ? 'bg-[var(--accent-green)] shadow-[0_0_0_3px_rgba(52,211,153,0.18)]'
+                      : isCancelled
+                        ? 'bg-[var(--accent-secondary)] shadow-[0_0_0_3px_rgba(249,112,102,0.18)]'
+                        : 'bg-[var(--text-muted)]';
+                    const labelColor = isCompleted ? 'text-[var(--accent-green)]' : isCancelled ? 'text-[var(--accent-secondary)]' : 'text-[var(--text-muted)]';
+                    const badgeBg = isCompleted
+                      ? 'bg-[rgba(52,211,153,0.1)] border-[rgba(52,211,153,0.25)] text-[var(--accent-green)]'
+                      : isCancelled
+                        ? 'bg-[rgba(249,112,102,0.1)] border-[rgba(249,112,102,0.25)] text-[var(--accent-secondary)]'
+                        : 'bg-[var(--bg-secondary)] border-[var(--border-default)] text-[var(--text-muted)]';
+                    const statusLabel = isCompleted ? '✅ Session Completed' : isCancelled ? '❌ Session Cancelled' : `🔄 ${item.status ?? 'Session'}`;
+
+                    return (
+                      <div key={i} className={`relative flex items-center gap-4 py-4 ${i < activity.length - 1 ? 'border-b border-[var(--border-default)]' : ''}`}>
+                        {/* LEFT: Timeline dot */}
+                        <div className={`relative z-10 shrink-0 w-[34px] h-[34px] rounded-full border-2 border-[var(--bg-primary)] flex items-center justify-center ${dotColor}`}>
+                          {isCompleted
+                            ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
+                            : isCancelled
+                              ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                              : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-3 h-3"><circle cx="10" cy="10" r="4" /></svg>
+                          }
+                        </div>
+
+                        {/* CENTER: Title + skill exchange */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[11px] font-extrabold uppercase tracking-wider mb-1 ${labelColor}`}>
+                            {isCompleted ? 'Session Completed' : isCancelled ? 'Session Cancelled' : (item.status ?? 'Session')}
+                          </p>
+                          <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate">
+                            <span className="text-[var(--accent-primary)]">{teachName}</span>
+                            <span className="mx-1.5 text-[var(--text-muted)] font-bold">↔</span>
+                            <span className="text-[var(--accent-secondary)]">{learnName}</span>
+                          </p>
+                        </div>
+
+                        {/* RIGHT: Status badge + date */}
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-[10px] font-bold capitalize ${badgeBg}`}>
+                            {item.status ?? 'unknown'}
+                          </span>
+                          {timeLabel && (
+                            <p className="text-[11px] text-[var(--text-muted)] font-medium">{timeLabel}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </Card>
         </motion.div>
 
@@ -868,7 +1291,7 @@ export default function Profile() {
           <Card>
             <CardHeader icon="📅" title="Availability" action={isOwnProfile ? <EditBtn onClick={() => setShowEditProfile(true)} /> : null} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
+
               <div className="space-y-6">
                 {/* Status */}
                 <div>
@@ -903,7 +1326,7 @@ export default function Profile() {
                     <p className="text-[13px] text-[var(--text-muted)]">No weekly availability added yet.</p>
                   )}
                 </div>
-                
+
                 {/* Communication */}
                 <div>
                   <p className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-2 font-bold">Communication Tools</p>
@@ -939,6 +1362,16 @@ export default function Profile() {
           onSave={handleProfileSave}
         />
       )}
+
+      <AnimatePresence>
+        {!isOwnProfile && showReportModal && (
+          <ReportUserModal
+            userId={userId}
+            displayName={displayName}
+            onClose={() => setShowReportModal(false)}
+          />
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }
