@@ -35,3 +35,5 @@ export const getCreditHistory = () =>
 export const addMeetingLink = (sessionId, meetingLink) =>
   api.patch(`/api/v1/sessions/${sessionId}/meeting-link/`, { meeting_link: meetingLink });
 
+export const getUserActivity = (userId) =>
+  api.get(`/api/v1/sessions/activity/${userId}/`);

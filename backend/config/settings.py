@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.skills",
     "apps.users",
     "apps.notifications",
+    "apps.reports",
     "corsheaders",
     "rest_framework_simplejwt.token_blacklist",
 ]
