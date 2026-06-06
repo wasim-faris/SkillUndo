@@ -4,6 +4,11 @@ from .models import SessionRequest, Review
 from apps.skills.models import Skill
 from apps.users.models import Profile
 from apps.notifications.services import create_notifications
+from apps.notifications.email_service import (
+    send_session_accepted_email,
+    send_session_cancelled_email,
+    send_session_request_email
+)
 from core.constants import (
     SESSION_PENDING,
     SESSION_CONFIRMED,
@@ -31,6 +36,8 @@ def send_session_request(sender, validated_data):
         message=validated_data.get("message", ""),
         status=SESSION_PENDING,
     )
+    
+    send_session_request_email(user=session.receiver, sender_name=session.sender)
 
     return session
 
@@ -65,7 +72,10 @@ def accept_session_request(session, user):
         message="Your session request has been accepted",
         notification_type="session",
     )
-    print("notification created")
+    
+    send_session_accepted_email(user=session.sender)
+    
+    
     return session, None
 
 
@@ -123,6 +133,8 @@ def cancel_session(session, user):
         message="Session has been cancelled",
         notification_type="session",
     )
+    
+    send_session_cancelled_email(user=other_user)
 
     return session, None
 
