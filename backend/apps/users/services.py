@@ -6,6 +6,7 @@ from datetime import timedelta
 import secrets
 from apps.users.models import OTPVerification
 
+
 def register_user(validated_data):
     """
     creates a new user and their profile.
@@ -167,4 +168,3 @@ def resend_otp(user):
     if user.is_verifed:
         return None
     return generate_otp(user)
-

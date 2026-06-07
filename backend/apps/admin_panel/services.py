@@ -11,12 +11,15 @@ def get_dashboard_stats():
         "cancelled_sessions": SessionRequest.objects.filter(status="cancelled").count(),
         "pending_reports": UserReport.objects.filter(status="pending").count(),
     }
-    
+
+
 def get_reports():
-    return UserReport.objects.all()
+    return UserReport.objects.order_by("-created_at")
+
 
 def get_sessions():
-    return SessionRequest.objects.all()
+    return SessionRequest.objects.order_by("-created_at")
+
 
 def get_users():
-    return User.objects.all()
+    return User.objects.order_by("created_at")

@@ -223,6 +223,3 @@ class PublicUserSkillView(APIView):
         return success_response(
             data=serializer.data, message="User Skill fetched successfully"
         )
-
-        
-        

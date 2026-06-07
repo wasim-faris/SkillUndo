@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from .models import User, Profile
 
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True, required=True, validators=[validate_password]
@@ -43,6 +44,7 @@ class LoginSerializer(serializers.Serializer):
 
 class ProfileSerializer(serializers.ModelSerializer):
     reliability_score = serializers.SerializerMethodField()
+
     class Meta:
         model = Profile
         fields = [
@@ -56,16 +58,14 @@ class ProfileSerializer(serializers.ModelSerializer):
 
         # used to only show in the frontend they cant edit this one
         read_only_fields = fields
-        
+
     def get_reliability_score(self, obj):
         total = obj.total_sessions + obj.cancelled_sessions
-        
-        if total==0:
+
+        if total == 0:
             return 100.00
-        
-        return round(
-            (obj.total_sessions/total) * 100, 2
-        )
+
+        return round((obj.total_sessions / total) * 100, 2)
 
 
 class UserSerializer(serializers.ModelSerializer):

@@ -1,28 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
 import { HiOutlineClipboardDocumentList, HiOutlineExclamationTriangle } from 'react-icons/hi2';
 import DashboardTable from '../../components/admin/DashboardTable';
 import Pagination from '../../components/admin/Pagination';
 import EmptyState from '../../components/admin/EmptyState';
-import useAdminQuery from '../../hooks/useAdminQuery';
+import useAdminPaginatedQuery from '../../hooks/useAdminPaginatedQuery';
 import { getAdminReports } from '../../api/admin';
-import { paginateData } from '../../utils/pagination';
 import { isForbidden, safeText } from '../../utils/admin';
 
 export default function AdminReports() {
-  const reports = useAdminQuery(getAdminReports);
-  const data = Array.isArray(reports.data) ? reports.data : [];
+  const reports = useAdminPaginatedQuery(getAdminReports);
+  const data = reports.results;
   const accessDenied = isForbidden(reports.error);
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 6;
-
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(data.length / PAGE_SIZE)), [data.length]);
-  const pageRows = useMemo(() => paginateData(data, currentPage, PAGE_SIZE), [data, currentPage]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
 
   const columns = [
     { key: 'reporter', label: 'Reporter', render: (row) => safeText(row.reporter) },
@@ -58,7 +45,7 @@ export default function AdminReports() {
         title="All Reports"
         description="Current moderation reports from the admin API."
         columns={columns}
-        rows={pageRows}
+        rows={data}
         loading={reports.loading}
         error={reports.error}
         onRetry={() => reports.reload().catch(() => { })}
@@ -67,7 +54,13 @@ export default function AdminReports() {
         emptyDescription="There are no moderation reports right now."
       />
 
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+      <Pagination
+        currentPage={reports.currentPage}
+        hasPrevious={Boolean(reports.previous)}
+        hasNext={Boolean(reports.next)}
+        onPrevious={() => reports.goToPage(reports.currentPage - 1)}
+        onNext={() => reports.goToPage(reports.currentPage + 1)}
+      />
     </div>
   );
 }

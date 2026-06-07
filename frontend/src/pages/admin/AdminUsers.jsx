@@ -1,28 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
 import { HiOutlineUsers, HiOutlineExclamationTriangle } from 'react-icons/hi2';
 import DashboardTable from '../../components/admin/DashboardTable';
 import Pagination from '../../components/admin/Pagination';
 import EmptyState from '../../components/admin/EmptyState';
-import useAdminQuery from '../../hooks/useAdminQuery';
+import useAdminPaginatedQuery from '../../hooks/useAdminPaginatedQuery';
 import { getAdminUsers } from '../../api/admin';
-import { paginateData } from '../../utils/pagination';
 import { formatDateOnly, isForbidden, safeText } from '../../utils/admin';
 
 export default function AdminUsers() {
-  const users = useAdminQuery(getAdminUsers);
-  const data = Array.isArray(users.data) ? users.data : [];
+  const users = useAdminPaginatedQuery(getAdminUsers);
+  const data = users.results;
   const accessDenied = isForbidden(users.error);
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 6;
-
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(data.length / PAGE_SIZE)), [data.length]);
-  const pageRows = useMemo(() => paginateData(data, currentPage, PAGE_SIZE), [data, currentPage]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
 
   const columns = [
     { key: 'name', label: 'Username', render: (row) => safeText(row.name) },
@@ -57,7 +44,7 @@ export default function AdminUsers() {
         title="All Users"
         description="Registered users available to the admin API."
         columns={columns}
-        rows={pageRows}
+        rows={data}
         loading={users.loading}
         error={users.error}
         onRetry={() => users.reload().catch(() => { })}
@@ -66,7 +53,13 @@ export default function AdminUsers() {
         emptyDescription="There are no users in the registry yet."
       />
 
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+      <Pagination
+        currentPage={users.currentPage}
+        hasPrevious={Boolean(users.previous)}
+        hasNext={Boolean(users.next)}
+        onPrevious={() => users.goToPage(users.currentPage - 1)}
+        onNext={() => users.goToPage(users.currentPage + 1)}
+      />
     </div>
   );
 }

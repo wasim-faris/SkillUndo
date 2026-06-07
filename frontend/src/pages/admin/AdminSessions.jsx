@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
 import { HiOutlineClock, HiOutlineExclamationTriangle } from 'react-icons/hi2';
 import DashboardTable from '../../components/admin/DashboardTable';
 import Pagination from '../../components/admin/Pagination';
 import EmptyState from '../../components/admin/EmptyState';
-import useAdminQuery from '../../hooks/useAdminQuery';
+import useAdminPaginatedQuery from '../../hooks/useAdminPaginatedQuery';
 import { getAdminSessions } from '../../api/admin';
-import { paginateData } from '../../utils/pagination';
 import { formatDateTime, isForbidden, safeText, getStatusTone } from '../../utils/admin';
 
 const badgeClass = {
@@ -26,20 +24,9 @@ function StatusBadge({ value }) {
 }
 
 export default function AdminSessions() {
-  const sessions = useAdminQuery(getAdminSessions);
-  const data = Array.isArray(sessions.data) ? sessions.data : [];
+  const sessions = useAdminPaginatedQuery(getAdminSessions);
+  const data = sessions.results;
   const accessDenied = isForbidden(sessions.error);
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 6;
-
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(data.length / PAGE_SIZE)), [data.length]);
-  const pageRows = useMemo(() => paginateData(data, currentPage, PAGE_SIZE), [data, currentPage]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
 
   const columns = [
     { key: 'teach_skill', label: 'Teacher Skill', render: (row) => safeText(row.teach_skill?.name) },
@@ -75,7 +62,7 @@ export default function AdminSessions() {
         title="All Sessions"
         description="All session requests returned by the admin API."
         columns={columns}
-        rows={pageRows}
+        rows={data}
         loading={sessions.loading}
         error={sessions.error}
         onRetry={() => sessions.reload().catch(() => { })}
@@ -84,7 +71,13 @@ export default function AdminSessions() {
         emptyDescription="There are no recent sessions to display."
       />
 
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+      <Pagination
+        currentPage={sessions.currentPage}
+        hasPrevious={Boolean(sessions.previous)}
+        hasNext={Boolean(sessions.next)}
+        onPrevious={() => sessions.goToPage(sessions.currentPage - 1)}
+        onNext={() => sessions.goToPage(sessions.currentPage + 1)}
+      />
     </div>
   );
 }
