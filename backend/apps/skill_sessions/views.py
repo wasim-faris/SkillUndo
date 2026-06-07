@@ -239,21 +239,21 @@ class JoinSessionView(APIView):
         print(session.session_started_at)
 
         return success_response(message="Session joined")
-    
+
+
 class RecentActivityView(APIView):
-    
+
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request, user_id):
-        
+
         user = get_object_or_404(User, id=user_id)
-        
+
         activity = get_recent_activity(user)
-        
+
         print(RecentActivitySerializer)
         serializer = RecentActivitySerializer(activity, many=True)
-        
+
         return success_response(
-            data=serializer.data,
-            message="Session activity fetched successfuly"
+            data=serializer.data, message="Session activity fetched successfuly"
         )

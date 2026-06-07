@@ -1,5 +1,4 @@
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.shortcuts import get_object_or_404
 from apps.skills.serializers import UserSkillSerializer
 from apps.skills.services import get_user_skills
 from .serializers import (
@@ -224,6 +223,3 @@ class PublicUserSkillView(APIView):
         return success_response(
             data=serializer.data, message="User Skill fetched successfully"
         )
-
-        
-        

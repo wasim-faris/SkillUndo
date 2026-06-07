@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import PublicRoute from './routes/PublicRoute';
+import AdminRoute from './routes/AdminRoute';
 
 import Auth from './pages/Auth';
 import ForgotPassword from './pages/ForgotPassword';
@@ -11,6 +12,11 @@ import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
 import Skills from './pages/Skills';
 import Matches from './pages/Matches';
+import AdminLayout from './components/admin/AdminLayout';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminReports from './pages/admin/AdminReports';
+import AdminSessions from './pages/admin/AdminSessions';
+import AdminUsers from './pages/admin/AdminUsers';
 
 import OTPVerification from './pages/OTPVerification';
 import Sessions from './pages/Sessions';
@@ -18,7 +24,7 @@ import Messages from './pages/Messages';
 
 function AnimatedRoutes() {
   const location = useLocation();
-  
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -32,7 +38,7 @@ function AnimatedRoutes() {
         <Routes location={location}>
           {/* Root Redirect */}
           <Route path="/" element={<Navigate to="/matches" replace />} />
-          
+
           {/* Authentication Routes (Public) */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Auth />} />
@@ -52,6 +58,17 @@ function AnimatedRoutes() {
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/skills" element={<Skills />} />
+
+            <Route element={<AdminRoute />}>
+              <Route path="/dashboard" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="sessions" element={<AdminSessions />} />
+                <Route path="users" element={<AdminUsers />} />
+              </Route>
+              <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
+            </Route>
           </Route>
 
           {/* Catch-all Redirect */}
@@ -76,19 +93,19 @@ export default function App() {
             duration: 4000,
             style: {
               fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-              fontSize:   '13.5px',
-              fontWeight:  500,
+              fontSize: '13.5px',
+              fontWeight: 500,
               lineHeight: '1.5',
               background: 'rgba(22, 20, 35, 0.92)',
               backdropFilter: 'blur(16px) saturate(1.6)',
               WebkitBackdropFilter: 'blur(16px) saturate(1.6)',
-              color:      '#e8e6f0',
-              border:     '1px solid rgba(255,255,255,0.06)',
+              color: '#e8e6f0',
+              border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: '14px',
-              padding:    '14px 18px',
-              boxShadow:  '0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)',
-              minWidth:   '320px',
-              maxWidth:   '420px',
+              padding: '14px 18px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)',
+              minWidth: '320px',
+              maxWidth: '420px',
             },
             success: {
               duration: 3000,

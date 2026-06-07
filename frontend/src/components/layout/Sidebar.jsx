@@ -7,6 +7,7 @@ import {
   HiBriefcase,
   HiChatBubbleLeftRight,
   HiArrowRightOnRectangle,
+  HiOutlineSquares2X2,
   HiBars3,
   HiXMark,
 } from 'react-icons/hi2';
@@ -23,10 +24,9 @@ const navItems = [
 ];
 
 const linkClass = ({ isActive }) =>
-  `flex items-center gap-4 px-4 py-3.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-    isActive
-      ? 'bg-[rgba(124,111,247,0.12)] text-[var(--accent-primary)]'
-      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-white'
+  `flex items-center gap-4 px-4 py-3.5 rounded-lg text-sm font-semibold transition-all duration-200 ${isActive
+    ? 'bg-[rgba(124,111,247,0.12)] text-[var(--accent-primary)]'
+    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-white'
   }`;
 
 export default function Sidebar() {
@@ -44,6 +44,9 @@ export default function Sidebar() {
     const nameParts = user?.name ? user.name.split(' ') : [];
     const firstName = nameParts[0] || 'User';
     const lastName = nameParts.slice(1).join(' ') || '';
+    const visibleNavItems = user?.is_staff
+      ? [...navItems, { to: '/dashboard', icon: HiOutlineSquares2X2, label: 'Admin Dashboard' }]
+      : navItems;
 
     return (
       <div className="flex flex-col h-full p-4 justify-between overflow-y-auto">
@@ -58,7 +61,7 @@ export default function Sidebar() {
 
           {/* Nav */}
           <nav className="space-y-2">
-            {navItems.map(({ to, icon: Icon, label }) => (
+            {visibleNavItems.map(({ to, icon: Icon, label }) => (
               <NavLink key={to} to={to} className={linkClass} onClick={() => setOpen(false)}>
                 <Icon size={20} />
                 {label}

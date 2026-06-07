@@ -29,7 +29,14 @@ const withCacheBust = (url) => {
   return `${url}${url.includes('?') ? '&' : '?'}v=${version}`;
 };
 
-export default function Avatar({ firstName = '', lastName = '', src, size = 'md', className = '' }) {
+export default function Avatar({
+  firstName = '',
+  lastName = '',
+  src,
+  size = 'md',
+  className = '',
+  theme = 'default',
+}) {
   const imageSrc = withCacheBust(getAssetUrl(src));
   const [failedImageSrc, setFailedImageSrc] = useState(null);
   const imageFailed = imageSrc && failedImageSrc === imageSrc;
@@ -37,6 +44,21 @@ export default function Avatar({ firstName = '', lastName = '', src, size = 'md'
     .filter(Boolean)
     .join('')
     .toUpperCase() || '?';
+
+  const themes = {
+    default: {
+      border: 'border-[var(--border-default)]',
+      surface: 'bg-[var(--bg-secondary)]',
+      text: 'text-[var(--text-primary)]',
+    },
+    admin: {
+      border: 'border-[var(--admin-border)]',
+      surface: 'bg-[var(--admin-surface)]',
+      text: 'text-[var(--admin-text)]',
+    },
+  };
+
+  const selectedTheme = themes[theme] || themes.default;
 
   const sizes = {
     xs: 'w-6 h-6 text-[10px]',
@@ -59,7 +81,7 @@ export default function Avatar({ firstName = '', lastName = '', src, size = 'md'
           setFailedImageSrc(imageSrc);
         }}
         className={`
-          rounded-full object-cover shrink-0 border border-[var(--border-default)]
+          rounded-full object-cover shrink-0 border ${selectedTheme.border}
           ${selectedSize}
           ${className}
         `}
@@ -72,7 +94,7 @@ export default function Avatar({ firstName = '', lastName = '', src, size = 'md'
     <div
       className={`
         inline-flex items-center justify-center rounded-full font-bold select-none shrink-0 
-        bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-primary)] transition-all duration-200
+        ${selectedTheme.surface} ${selectedTheme.border} ${selectedTheme.text} transition-all duration-200
         ${selectedSize}
         ${className}
       `}

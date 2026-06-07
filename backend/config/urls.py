@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/v1/chat/", include("apps.chat.urls")),
     path("api/v1/notifications/", include("apps.notifications.urls")),
     path("api/v1/reports/", include("apps.reports.urls")),
+    path("api/v1/admin-panel/", include("apps.admin_panel.urls")),
 ]
 
 if settings.DEBUG:

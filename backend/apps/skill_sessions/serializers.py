@@ -202,6 +202,7 @@ class CreditTransactionSerializer(serializers.ModelSerializer):
 class RecentActivitySerializer(serializers.ModelSerializer):
     teach_skill = serializers.CharField(source="teach_skill.name")
     learn_skill = serializers.CharField(source="learn_skill.name")
+
     class Meta:
         model = SessionRequest
         fields = [

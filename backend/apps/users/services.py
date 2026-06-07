@@ -5,7 +5,7 @@ from django.utils import timezone
 from datetime import timedelta
 import secrets
 from apps.users.models import OTPVerification
-from apps.skill_sessions.models import SessionRequest
+
 
 def register_user(validated_data):
     """
@@ -168,4 +168,3 @@ def resend_otp(user):
     if user.is_verifed:
         return None
     return generate_otp(user)
-
