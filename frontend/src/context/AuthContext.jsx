@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { logout as apiLogout } from '../api/auth';
+import { logout as apiLogout, getProfile } from '../api/auth';
 
 const AuthContext = createContext(null);
 
@@ -20,6 +20,8 @@ export function AuthProvider({ children }) {
     }
   });
 
+  const [loading, setLoading] = useState(false);
+
   // Listen for auto-logout events (from 401 interceptor)
   useEffect(() => {
     const handleLogout = () => {
@@ -29,6 +31,34 @@ export function AuthProvider({ children }) {
     window.addEventListener('auth:logout', handleLogout);
     return () => window.removeEventListener('auth:logout', handleLogout);
   }, []);
+
+  useEffect(() => {
+    if (!tokens || user) return;
+
+    let active = true;
+    setLoading(true);
+
+    const hydrateUser = async () => {
+      try {
+        const response = await getProfile();
+        const profileData = response?.data?.data ?? response?.data ?? null;
+        if (active && profileData) {
+          localStorage.setItem(USER_KEY, JSON.stringify(profileData));
+          setUser(profileData);
+        }
+      } catch (err) {
+        console.error('Failed to load authenticated user profile:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    hydrateUser();
+
+    return () => {
+      active = false;
+    };
+  }, [tokens, user]);
 
   const login = useCallback((tokenData, userData) => {
     localStorage.setItem('access_token', tokenData.access);
@@ -65,7 +95,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, tokens, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, tokens, login, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

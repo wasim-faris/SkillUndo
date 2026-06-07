@@ -259,6 +259,45 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
 }
 
+/* ── ADMIN DASHBOARD THEME ── */
+.admin-shell {
+  --admin-bg: #0F1115;
+  --admin-surface: #171A21;
+  --admin-card: #1D212B;
+  --admin-border: #2A2F3A;
+  --admin-accent: #7C8CFF;
+  --admin-success: #22C55E;
+  --admin-warning: #F59E0B;
+  --admin-danger: #EF4444;
+  --admin-text: #F8FAFC;
+  --admin-text-secondary: #94A3B8;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+}
+
+.admin-shell ::selection {
+  background: var(--admin-accent);
+  color: #fff;
+}
+
+.admin-shell ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-shell ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb {
+  background: var(--admin-border);
+  border-radius: 999px;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb:hover {
+  background: var(--admin-accent);
+}
+
 .auth-tab-btn {
   padding-bottom: 0.75rem;
   font-size: 0.875rem;

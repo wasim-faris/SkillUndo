@@ -1,22 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate, useLocation }           from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { HiLightningBolt, HiChevronRight, HiArrowRight } from 'react-icons/hi';
-import { motion, AnimatePresence }                   from 'framer-motion';
-import toast                                         from 'react-hot-toast';
-import { useFormErrors }                             from '../hooks/useFormErrors';
-import { useAuth }                                   from '../context/AuthContext';
-import { getProfile }                                from '../api/auth';
-import api                                           from '../api/axios';
-import Input                                         from '../components/ui/Input';
-import Button                                        from '../components/ui/Button';
-import AuthShowcase                                  from '../components/ui/AuthShowcase';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { useFormErrors } from '../hooks/useFormErrors';
+import { useAuth } from '../context/AuthContext';
+import { getProfile } from '../api/auth';
+import { getLandingPath } from '../utils/admin';
+import api from '../api/axios';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import AuthShowcase from '../components/ui/AuthShowcase';
 
 /* ─── email regex (RFC-5322 lite) ─────────────────────────────── */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Auth() {
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const {
     fieldError, generalError,
@@ -24,8 +25,8 @@ export default function Auth() {
     clearAll, setGeneralError,
   } = useFormErrors();
 
-  const [loading, setLoading]           = useState(false);
-  const [mode, setMode]                 = useState(
+  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState(
     location.pathname === '/register' ? 'register' : 'login'
   );
   const isLogin = mode === 'login';
@@ -36,14 +37,14 @@ export default function Auth() {
   });
 
   /* touched tracks which fields the user has interacted with */
-  const [touched,       setTouched]       = useState({});
-  const [clientErrors,  setClientErrors]  = useState({});
-  const [showOptional,  setShowOptional]  = useState(false);
+  const [touched, setTouched] = useState({});
+  const [clientErrors, setClientErrors] = useState({});
+  const [showOptional, setShowOptional] = useState(false);
 
   /* refs for auto-focus on server-side field errors */
-  const emailRef    = useRef(null);
+  const emailRef = useRef(null);
   const passwordRef = useRef(null);
-  const nameRef     = useRef(null);
+  const nameRef = useRef(null);
 
   /* reset everything on mode switch */
   useEffect(() => {
@@ -54,14 +55,14 @@ export default function Auth() {
 
   /* ── Real-time per-field validators ─────────────────────────── */
   const validators = {
-    name:            (v) => (!isLogin && !v.trim() ? 'Full name is required.' : ''),
-    email:           (v) => {
-      if (!v.trim())          return 'Email address is required.';
-      if (!EMAIL_RE.test(v))  return 'Please enter a valid email address.';
+    name: (v) => (!isLogin && !v.trim() ? 'Full name is required.' : ''),
+    email: (v) => {
+      if (!v.trim()) return 'Email address is required.';
+      if (!EMAIL_RE.test(v)) return 'Please enter a valid email address.';
       return '';
     },
-    password:        (v) => {
-      if (!v)        return 'Password is required.';
+    password: (v) => {
+      if (!v) return 'Password is required.';
       if (v.length < 8) return 'Password must be at least 8 characters.';
       return '';
     },
@@ -71,7 +72,7 @@ export default function Auth() {
 
   /* run a single field validator and push result into clientErrors */
   const validateField = useCallback((field, value) => {
-    const fn  = validators[field];
+    const fn = validators[field];
     const msg = fn ? fn(value) : '';
     setClientErrors((prev) => {
       if (!msg) {
@@ -130,9 +131,9 @@ export default function Auth() {
     const errs = validateAll();
     if (Object.keys(errs).length > 0) {
       const first = Object.keys(errs)[0];
-      if      (first === 'email')    emailRef.current?.focus();
+      if (first === 'email') emailRef.current?.focus();
       else if (first === 'password') passwordRef.current?.focus();
-      else if (first === 'name')     nameRef.current?.focus();
+      else if (first === 'name') nameRef.current?.focus();
 
       toast.error('Please fix the highlighted fields.', { id: 'validation-error' });
       return;
@@ -145,37 +146,38 @@ export default function Auth() {
       if (isLogin) {
         /* ── Login ─────────────────────────────────────────────── */
         const response = await api.post('/api/v1/auth/login/', {
-          email:    form.email,
+          email: form.email,
           password: form.password,
         });
 
         const tokens = response.data.data;
         let firstName = 'back';
+        let profileData = { email: form.email, name: 'User', is_staff: false };
 
         try {
-          const profileRes  = await getProfile();
-          const profileData = profileRes.data.data;
+          const profileRes = await getProfile();
+          profileData = profileRes.data.data;
           firstName = profileData?.name?.split(' ')[0] || 'back';
           login(tokens, profileData);
         } catch {
-          login(tokens, { email: form.email, name: 'User' });
+          login(tokens, profileData);
         }
 
         /* Success → toast + navigate (browser may now offer to save password) */
         toast.success(`Welcome back, ${firstName}! 👋`, { id: 'login-success' });
-        navigate('/feed');
+        navigate(getLandingPath(profileData), { replace: true });
 
       } else {
         /* ── Register ──────────────────────────────────────────── */
         const formData = new FormData();
-        formData.append('email',            form.email);
-        formData.append('name',             form.name);
-        formData.append('password',         form.password);
+        formData.append('email', form.email);
+        formData.append('name', form.name);
+        formData.append('password', form.password);
         formData.append('confirm_password', form.confirmPassword);
-        if (form.city)     formData.append('city',     form.city);
+        if (form.city) formData.append('city', form.city);
         if (form.language) formData.append('language', form.language);
-        if (form.bio)      formData.append('bio',      form.bio);
-        if (form.photo)    formData.append('photo',    form.photo);
+        if (form.bio) formData.append('bio', form.bio);
+        if (form.photo) formData.append('photo', form.photo);
 
         await api.post('/api/v1/auth/register/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -205,10 +207,10 @@ export default function Auth() {
       } else if (result?.fieldErrors) {
         /* Server-validated field errors (registration) — find first + toast */
         const firstField = Object.keys(result.fieldErrors)[0];
-        const firstMsg   = result.fieldErrors[firstField];
-        if (firstField === 'email')    setTimeout(() => emailRef.current?.focus(), 60);
+        const firstMsg = result.fieldErrors[firstField];
+        if (firstField === 'email') setTimeout(() => emailRef.current?.focus(), 60);
         if (firstField === 'password') setTimeout(() => passwordRef.current?.focus(), 60);
-        if (firstField === 'name')     setTimeout(() => nameRef.current?.focus(), 60);
+        if (firstField === 'name') setTimeout(() => nameRef.current?.focus(), 60);
         toast.error(firstMsg || 'Please fix the errors and try again.', { id: 'field-error' });
 
       } else if (result?.message) {
@@ -430,8 +432,8 @@ export default function Auth() {
                       <motion.div
                         role="alert"
                         initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0,  scale: 1 }}
-                        exit={{    opacity: 0, y: -4, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
                         transition={{ duration: 0.2 }}
                         className="auth-general-error"
                       >

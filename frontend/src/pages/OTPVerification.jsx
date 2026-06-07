@@ -5,6 +5,7 @@ import { HiLightningBolt } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { getLandingPath } from '../utils/admin';
 
 export default function OTPVerification() {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ export default function OTPVerification() {
 
   const handleChange = (index, value) => {
     if (isNaN(value)) return;
-    
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
@@ -67,7 +68,7 @@ export default function OTPVerification() {
       const tokens = response.data.data;
 
       // Fetch the actual user profile to get their real name/photo
-      let profileData = { email, name: 'User' };
+      let profileData = { email, name: 'User', is_staff: false };
       try {
         localStorage.setItem('access_token', tokens.access);
         localStorage.setItem('refresh_token', tokens.refresh);
@@ -80,7 +81,7 @@ export default function OTPVerification() {
       login(tokens, profileData);
       localStorage.removeItem('pending_email');
       toast.success('Email verified successfully!');
-      navigate('/feed');
+      navigate(getLandingPath(profileData), { replace: true });
     } catch (err) {
       setError(true);
       toast.error(err.response?.data?.message || 'Invalid verification code');
@@ -93,7 +94,7 @@ export default function OTPVerification() {
 
   const handleResend = async () => {
     if (timer > 0) return;
-    
+
     setLoading(true);
     try {
       await api.post('/api/v1/auth/resend-otp/', { email });
@@ -121,7 +122,7 @@ export default function OTPVerification() {
           >
             <HiLightningBolt style={{ color: '#fff', width: 24, height: 24 }} />
           </div>
-          
+
           <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
             Check your email
           </h1>

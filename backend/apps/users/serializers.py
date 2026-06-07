@@ -85,7 +85,9 @@ class UserSerializer(serializers.ModelSerializer):
             "headline",
             "banner_image",
             "is_available",
+            "is_staff",
             "profile",
+            "created_at",
         ]
         read_only_fields = ["id", "email"]
 

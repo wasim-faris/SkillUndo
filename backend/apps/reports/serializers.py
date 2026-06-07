@@ -2,10 +2,13 @@ from rest_framework import serializers
 from .models import UserReport
 
 class ReportUserSerializer(serializers.ModelSerializer):
-    print("serializer is working")
+    reporter = serializers.CharField(source="reporter.name")
+    reported_user = serializers.CharField(source="reported_user.name")
     class Meta:
         model = UserReport
         fields = [
+            "reporter",
+            "reported_user",
             "reason",
             "description",
         ]
