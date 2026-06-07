@@ -154,14 +154,18 @@ export default function Auth() {
         let firstName = 'back';
         let profileData = { email: form.email, name: 'User', is_staff: false };
 
+        localStorage.setItem('access_token', tokens.access);
+        localStorage.setItem('refresh_token', tokens.refresh);
+
         try {
           const profileRes = await getProfile();
           profileData = profileRes.data.data;
           firstName = profileData?.name?.split(' ')[0] || 'back';
-          login(tokens, profileData);
         } catch {
-          login(tokens, profileData);
+          // If profile loading fails, keep fallback data so we still preserve login state.
         }
+
+        login(tokens, profileData);
 
         /* Success → toast + navigate (browser may now offer to save password) */
         toast.success(`Welcome back, ${firstName}! 👋`, { id: 'login-success' });
