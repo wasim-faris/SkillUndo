@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,11 +28,11 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "10.10.10.20",
-]
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default="localhost,127.0.0.1",
+    cast=lambda v: [s.strip() for s in v.split(",")],
+)
 
 
 AUTH_USER_MODEL = "users.User"
@@ -103,14 +104,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "skillswapper_db",
-        "USER": "wasim",
-        "PASSWORD": "8078",
-        "HOST": "localhost",
-        "PORT": "5432",
-    }
+    "default": dj_database_url.config(
+        default=config("DATABASE_URL")
+    )
 }
 
 
