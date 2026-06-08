@@ -18,8 +18,8 @@ export default function AdminTopBar({ sectionLabel = 'Dashboard', onMenuClick })
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-[var(--admin-bg)]">
-      <div className="flex min-h-[76px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
+      <div className="flex min-h-[76px] items-center justify-between gap-3 px-3 py-3 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
@@ -36,7 +36,7 @@ export default function AdminTopBar({ sectionLabel = 'Dashboard', onMenuClick })
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2">
             <Avatar
               theme="admin"
@@ -46,7 +46,7 @@ export default function AdminTopBar({ sectionLabel = 'Dashboard', onMenuClick })
               size="sm"
               className="!h-9 !w-9"
             />
-            <div className="hidden min-w-0 md:block">
+            <div className="hidden min-w-0 sm:block">
               <p className="truncate text-sm font-medium text-[var(--admin-text)]">{name}</p>
               <p className="truncate text-xs text-[var(--admin-text-secondary)]">{email}</p>
             </div>

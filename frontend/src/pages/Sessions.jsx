@@ -13,6 +13,7 @@ import {
 } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import Avatar from '../components/ui/Avatar';
+import MobileBackButton from '../components/ui/MobileBackButton';
 import { useAuth } from '../context/AuthContext';
 import {
   acceptSession,
@@ -156,33 +157,42 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
   return (
     <div
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-4 backdrop-blur-sm transition-all duration-300"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 px-4 py-4 backdrop-blur-sm transition-all duration-300"
     >
       <motion.div
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="card-premium flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden"
+        className="card-premium flex max-h-[90vh] w-full max-w-[min(95vw,28rem)] flex-col overflow-hidden max-[480px]:max-h-[92vh]"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--border-default)] px-4 py-3">
-          <div>
-            <h2 className="text-base font-bold text-[var(--text-primary)]">Session Details</h2>
-            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Review the session state and leave feedback after completion.</p>
+        <div className="border-b border-[var(--border-default)] bg-[var(--bg-card)] px-3 py-2 md:hidden">
+          <MobileBackButton
+            label="Sessions"
+            onClick={onClose}
+          />
+        </div>
+
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] px-3 py-2.5 sm:px-4 sm:py-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-[var(--text-primary)] sm:text-base">Session Details</h2>
+            <p className="mt-0.5 max-w-[18rem] text-[10px] leading-snug text-[var(--text-muted)] sm:text-[11px]">
+              Review the session state and leave feedback after completion.
+            </p>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all">
-            <HiX size={16} />
+          <button onClick={onClose} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] transition-all hover:text-[var(--text-primary)] sm:h-8 sm:w-8">
+            <HiX size={14} className="sm:size-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
           {loading ? (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="h-16 animate-pulse rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)]" />
+                <div key={index} className="h-14 animate-pulse rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] sm:h-16" />
               ))}
             </div>
           ) : session ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {[session.sender, session.receiver].map((participant, index) => {
                   const role = index === 0 ? 'Sender' : 'Receiver';
                   const isSelf = participant?.id === user?.id;
@@ -190,18 +200,25 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
                     <div
                       key={participant.id}
                       onClick={() => !isSelf && participant.id && navigate(`/profile/${participant.id}`)}
-                      className={`rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 flex items-center gap-3 transition-all ${
+                      className={`rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-2.5 flex items-center gap-2.5 transition-all sm:p-3 sm:gap-3 ${
                         !isSelf ? 'cursor-pointer hover:border-[var(--accent-primary)] hover:bg-[var(--bg-hover)]' : ''
                       }`}
                       title={!isSelf ? 'View Profile' : undefined}
                     >
-                      <Avatar firstName={participant.name?.split(' ')[0]} lastName={participant.name?.split(' ')[1]} src={participant.photo} className="!h-9 !w-9 shrink-0" />
+                      <Avatar firstName={participant.name?.split(' ')[0]} lastName={participant.name?.split(' ')[1]} src={participant.photo} className="!h-8 !w-8 shrink-0 sm:!h-9 sm:!w-9" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">{role}</p>
-                        <p className={`truncate text-xs font-bold text-[var(--text-primary)] ${!isSelf ? 'hover:text-[var(--accent-primary)] transition-colors' : ''}`}>{participant.name}</p>
-                        <p className="truncate text-[11px] text-[var(--text-secondary)] mb-0.5">{participant.email}</p>
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <p className="truncate text-xs font-bold text-[var(--text-primary)]">
+                            {participant.name}
+                          </p>
+                          <span className="inline-flex shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--bg-card)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] sm:hidden">
+                            {role}
+                          </span>
+                        </div>
+                        <p className="truncate text-[10px] text-[var(--text-secondary)]">{participant.email}</p>
+                        <p className="hidden text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] sm:block">{role}</p>
                         {!isSelf && (
-                          <span className="inline-flex text-[10px] font-extrabold text-[var(--accent-primary)] hover:underline items-center gap-0.5 mt-0.5">
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-[var(--accent-primary)] hover:underline">
                             View Profile ↗
                           </span>
                         )}
@@ -211,51 +228,61 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
                 })}
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Exchange</p>
-                  <p className="text-xs text-[var(--text-primary)]">
-                    Teach: <span className="font-bold text-[var(--accent-primary)]">{session.teach_skill?.name || 'Unknown'}</span>
-                  </p>
-                  <p className="mt-1 text-xs text-[var(--text-primary)]">
-                    Learn: <span className="font-bold text-[var(--accent-secondary)]">{session.learn_skill?.name || 'Unknown'}</span>
-                  </p>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-2.5 sm:p-3">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Exchange</p>
+                  <div className="grid grid-cols-1 gap-1.5 text-xs text-[var(--text-primary)] sm:grid-cols-2 sm:gap-2">
+                    <p className="min-w-0">
+                      Teach: <span className="font-bold text-[var(--accent-primary)]">{session.teach_skill?.name || 'Unknown'}</span>
+                    </p>
+                    <p className="min-w-0">
+                      Learn: <span className="font-bold text-[var(--accent-secondary)]">{session.learn_skill?.name || 'Unknown'}</span>
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Schedule</p>
-                  <p className="flex items-center gap-1.5 text-xs text-[var(--text-primary)]"><HiCalendar size={14} className="text-[var(--accent-primary)] shrink-0" /> {detail?.date}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--text-primary)]"><HiClock size={14} className="text-[var(--accent-secondary)] shrink-0" /> {detail?.time}</p>
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-2.5 sm:p-3">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Schedule</p>
+                  <div className="space-y-1 text-xs text-[var(--text-primary)]">
+                    <p className="flex items-center gap-1.5">
+                      <HiCalendar size={14} className="shrink-0 text-[var(--accent-primary)]" />
+                      <span className="min-w-0 truncate">{detail?.date}</span>
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <HiClock size={14} className="shrink-0 text-[var(--accent-secondary)]" />
+                      <span className="min-w-0 truncate">{detail?.time}</span>
+                    </p>
+                  </div>
                 </div>
               </div>
 
               {/* Join Meeting Section — link auto-generated by backend on accept */}
               {session.status === 'confirmed' && (
-                <div className={`rounded-xl border p-3.5 ${session.meeting_link ? 'bg-[rgba(52,211,153,0.06)] border-[rgba(52,211,153,0.3)]' : 'bg-[var(--bg-secondary)] border-[var(--border-default)]'}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
+                <div className={`rounded-xl border p-2.5 sm:p-3.5 ${session.meeting_link ? 'bg-[rgba(52,211,153,0.06)] border-[rgba(52,211,153,0.3)]' : 'bg-[var(--bg-secondary)] border-[var(--border-default)]'}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-2.5">
                       {session.meeting_link ? (
                         <>
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(52,211,153,0.15)] text-[var(--accent-green)] shrink-0">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(52,211,153,0.15)] text-[var(--accent-green)] shrink-0 sm:h-8 sm:w-8">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                               <path d="M4.5 4.5a3 3 0 00-3 3v9a3 3 0 003 3h8.25a3 3 0 003-3v-9a3 3 0 00-3-3H4.5zM19.94 18.75l-2.69-2.69V7.94l2.69-2.69c.944-.945 2.56-.276 2.56 1.06v11.38c0 1.336-1.616 2.005-2.56 1.06z" />
                             </svg>
                           </div>
                           <div>
                             <p className="text-xs font-bold text-[var(--accent-green)]">Meeting Room Ready</p>
-                            <p className="text-[10px] text-[var(--text-muted)] font-medium">Your Jitsi room has been created</p>
+                            <p className="text-[10px] text-[var(--text-muted)] font-medium leading-snug">Your Jitsi room has been created</p>
                           </div>
                         </>
                       ) : (
                         <>
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-muted)] shrink-0">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-muted)] shrink-0 sm:h-8 sm:w-8">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                               <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
                             </svg>
                           </div>
                           <div>
                             <p className="text-xs font-bold text-[var(--text-muted)]">Meeting Locked</p>
-                            <p className="text-[10px] text-[var(--text-muted)] font-medium">Available 10 minutes before session</p>
+                            <p className="text-[10px] text-[var(--text-muted)] font-medium leading-snug">Available 10 minutes before session</p>
                           </div>
                         </>
                       )}
@@ -264,7 +291,7 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
                       <button
                         onClick={handleJoinMeeting}
                         disabled={joining}
-                        className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                        className="shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold text-white transition-all duration-200 shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100 sm:px-4 sm:py-2"
                         style={{ background: 'linear-gradient(135deg, #34d399 0%, #059669 100%)' }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
@@ -275,7 +302,7 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
                     ) : (
                       <button
                         disabled
-                        className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border-default)] cursor-not-allowed opacity-60"
+                        className="shrink-0 flex items-center gap-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] px-3.5 py-1.5 text-xs font-bold text-[var(--text-muted)] opacity-60 cursor-not-allowed sm:px-4 sm:py-2"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
                           <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
@@ -289,16 +316,16 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
 
               {/* Separate Completion Indicators */}
               {session.status === 'confirmed' && (
-                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3.5 space-y-2">
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-2.5 space-y-2 sm:p-3.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Session Completion Status</p>
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="flex items-center gap-2 text-xs">
+                  <div className="grid grid-cols-1 gap-2 pt-0.5 sm:grid-cols-2 sm:gap-3 sm:pt-1">
+                    <div className="flex items-center gap-2 text-[11px] sm:text-xs">
                       <span className={`h-2.5 w-2.5 rounded-full ${session.completed_by_sender ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-muted)] opacity-50'}`} />
                       <span className="text-[var(--text-secondary)] font-medium">
                         Sender: <span className="font-bold">{session.completed_by_sender ? 'Marked Complete ✓' : 'Pending ⏳'}</span>
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex items-center gap-2 text-[11px] sm:text-xs">
                       <span className={`h-2.5 w-2.5 rounded-full ${session.completed_by_receiver ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-muted)] opacity-50'}`} />
                       <span className="text-[var(--text-secondary)] font-medium">
                         Receiver: <span className="font-bold">{session.completed_by_receiver ? 'Marked Complete ✓' : 'Pending ⏳'}</span>
@@ -309,30 +336,30 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
               )}
 
               {session.message ? (
-                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-2.5 sm:p-3">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Message</p>
-                  <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{session.message}</p>
+                  <p className="mt-1 text-[11px] leading-snug text-[var(--text-secondary)] sm:text-xs sm:leading-relaxed">{session.message}</p>
                 </div>
               ) : null}
 
               {session.status === 'completed' ? (
                 isAlreadyReviewed ? (
-                  <div className="rounded-xl border border-[rgba(52,211,153,0.28)] bg-[rgba(52,211,153,0.06)] p-3.5 flex items-center gap-3">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(52,211,153,0.12)] text-[var(--accent-green)] shrink-0">
+                  <div className="rounded-xl border border-[rgba(52,211,153,0.28)] bg-[rgba(52,211,153,0.06)] p-2.5 flex items-center gap-2.5 sm:p-3.5 sm:gap-3">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[rgba(52,211,153,0.12)] text-[var(--accent-green)] shrink-0 sm:h-7 sm:w-7">
                       <HiCheck size={16} />
                     </div>
                     <div>
                       <p className="text-xs font-bold text-[var(--text-primary)]">Review Submitted</p>
-                      <p className="text-[11px] text-[var(--text-secondary)]">You have completed the feedback process for this session.</p>
+                      <p className="text-[10px] leading-snug text-[var(--text-secondary)] sm:text-[11px]">You have completed the feedback process for this session.</p>
                     </div>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmitReview} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3.5">
-                    <div className="flex items-center gap-2 mb-3">
+                  <form onSubmit={handleSubmitReview} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-2.5 sm:p-3.5">
+                    <div className="mb-2.5 flex items-center gap-2 sm:mb-3">
                       <HiStar size={15} className="text-[var(--accent-yellow)]" />
                       <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-primary)]">Leave Review</h3>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[100px_1fr]">
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[100px_1fr] sm:gap-3">
                       <label className="block">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Rating</span>
                         <select
@@ -356,8 +383,8 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
                         />
                       </label>
                     </div>
-                    <div className="mt-3 flex justify-end">
-                      <button type="submit" disabled={submitting} className="btn-primary !py-1.5 text-xs px-4 disabled:opacity-60 font-bold rounded-lg">
+                    <div className="mt-2.5 flex justify-end sm:mt-3">
+                      <button type="submit" disabled={submitting} className="btn-primary !py-1.5 text-xs px-4 font-bold rounded-lg disabled:opacity-60">
                         {submitting ? 'Submitting...' : 'Submit Review'}
                       </button>
                     </div>
@@ -368,11 +395,11 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
           ) : null}
         </div>
 
-        <div className="border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-3 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-3 py-2.5 sm:px-4 sm:py-3">
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors font-semibold"
+            className="flex items-center gap-1 text-[11px] font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] sm:text-xs"
           >
             ← Back
           </button>
@@ -380,14 +407,14 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
             <button
               type="button"
               onClick={onClose}
-              className="btn-ghost !py-1.5 text-xs px-3.5 border border-[var(--border-default)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-card)] rounded-lg font-bold"
+              className="btn-ghost rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3.5 !py-1.5 text-xs font-bold hover:bg-[var(--bg-card)]"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="btn-primary !py-1.5 text-xs px-3.5 rounded-lg font-bold"
+              className="btn-primary rounded-lg px-3.5 !py-1.5 text-xs font-bold"
             >
               Close
             </button>
@@ -766,7 +793,7 @@ export default function Sessions() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col lg:flex-row gap-5 w-full max-w-6xl">
+      <div className="flex w-full max-w-6xl flex-col gap-5 lg:flex-row lg:items-start">
         {/* Main Content Area */}
         <div className="flex-1 space-y-4 min-w-0">
           <div className="card-premium flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
@@ -790,7 +817,7 @@ export default function Sessions() {
                   </button>
                 ))}
               </div>
-              <button onClick={() => setShowRequestModal(true)} className="btn-primary flex items-center gap-1.5 px-4 !py-2 text-xs font-bold rounded-lg shrink-0">
+              <button onClick={() => setShowRequestModal(true)} className="btn-primary flex w-full items-center gap-1.5 rounded-lg px-4 !py-2 text-xs font-bold shrink-0 sm:w-auto">
                 <HiUserAdd size={15} /> New Request
               </button>
             </div>

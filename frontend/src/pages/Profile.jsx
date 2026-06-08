@@ -15,6 +15,7 @@ import { getProfile, getPublicProfile, updateProfile } from '../api/auth';
 import { getMatches, getUserSkills, getPublicUserSkills } from '../api/skills';
 import { getUserActivity } from '../api/sessions';
 import api from '../api/axios';
+import MobileBackButton from '../components/ui/MobileBackButton';
 
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
@@ -350,7 +351,7 @@ function ReportUserModal({ userId, displayName, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-6"
       style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -359,11 +360,11 @@ function ReportUserModal({ userId, displayName, onClose }) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 10, scale: 0.97 }}
         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-        className="card-premium w-full max-w-md flex flex-col"
+        className="card-premium flex w-full max-w-[min(95vw,28rem)] max-h-[90vh] flex-col overflow-hidden"
         style={{ overflow: 'hidden' }}
       >
         {/* Header */}
-        <div className="flex items-start justify-between px-6 pt-6 pb-5 border-b border-[var(--border-default)]">
+        <div className="flex flex-col gap-3 border-b border-[var(--border-default)] px-4 pb-5 pt-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(249,112,102,0.12)', border: '1px solid rgba(249,112,102,0.22)' }}>
               <HiFlag size={18} style={{ color: 'var(--accent-secondary)' }} />
@@ -383,100 +384,101 @@ function ReportUserModal({ userId, displayName, onClose }) {
           </button>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
-          <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
-            Help us keep SkillSwap safe by reporting inappropriate behavior or suspicious activity.
-          </p>
-
-          {/* Reason */}
-          <div>
-            <label htmlFor="report-reason" className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
-              Reason
-            </label>
-            <div className="relative">
-              <select
-                id="report-reason"
-                value={reason}
-                onChange={(e) => {
-                  setReason(e.target.value);
-                  setErrors((prev) => ({ ...prev, reason: '', form: '' }));
-                }}
-                className="w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] appearance-none cursor-pointer transition-colors"
-                style={{ colorScheme: 'dark' }}
-              >
-                <option value="" disabled>Select a reason…</option>
-                {REPORT_REASONS.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label htmlFor="report-description" className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
-              Description
-            </label>
-            <textarea
-              id="report-description"
-              rows={4}
-              maxLength={MAX_CHARS}
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                setErrors((prev) => ({ ...prev, description: '', form: '' }));
-              }}
-              placeholder="Please describe the issue in detail."
-              className="w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] resize-none focus:outline-none focus:border-[var(--accent-primary)] transition-colors placeholder:text-[var(--text-muted)]"
-            />
-            <p className="text-[11px] text-[var(--text-muted)] mt-1.5 text-right">
-              {description.length}/{MAX_CHARS}
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+            <p className="text-[13px] leading-relaxed text-[var(--text-secondary)]">
+              Help us keep SkillSwap safe by reporting inappropriate behavior or suspicious activity.
             </p>
+
+            <div className="mt-5 space-y-5">
+              <div>
+                <label htmlFor="report-reason" className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  Reason
+                </label>
+                <div className="relative">
+                  <select
+                    id="report-reason"
+                    value={reason}
+                    onChange={(e) => {
+                      setReason(e.target.value);
+                      setErrors((prev) => ({ ...prev, reason: '', form: '' }));
+                    }}
+                    className="w-full cursor-pointer appearance-none rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-primary)] transition-colors focus:border-[var(--accent-primary)] focus:outline-none"
+                    style={{ colorScheme: 'dark' }}
+                  >
+                    <option value="" disabled>Select a reason…</option>
+                    {REPORT_REASONS.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="report-description" className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  Description
+                </label>
+                <textarea
+                  id="report-description"
+                  rows={4}
+                  maxLength={MAX_CHARS}
+                  value={description}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    setErrors((prev) => ({ ...prev, description: '', form: '' }));
+                  }}
+                  placeholder="Please describe the issue in detail."
+                  className="w-full resize-none rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-primary)] transition-colors placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none"
+                />
+                <p className="mt-1.5 text-right text-[11px] text-[var(--text-muted)]">
+                  {description.length}/{MAX_CHARS}
+                </p>
+              </div>
+
+              {(errors.reason || errors.description || errors.form) && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-[rgba(249,112,102,0.22)] bg-[rgba(249,112,102,0.08)] px-3.5 py-3 text-[13px] font-medium text-[var(--accent-secondary)]">
+                  <HiX size={15} className="mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    {errors.reason ? <p>Reason: {errors.reason}</p> : null}
+                    {errors.description ? <p>Description: {errors.description}</p> : null}
+                    {errors.form ? <p>{errors.form}</p> : null}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Error */}
-          {(errors.reason || errors.description || errors.form) && (
-            <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl text-[13px] font-medium" style={{ background: 'rgba(249,112,102,0.08)', border: '1px solid rgba(249,112,102,0.22)', color: 'var(--accent-secondary)' }}>
-              <HiX size={15} className="shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                {errors.reason ? <p>Reason: {errors.reason}</p> : null}
-                {errors.description ? <p>Description: {errors.description}</p> : null}
-                {errors.form ? <p>{errors.form}</p> : null}
-              </div>
+          <div className="shrink-0 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-3 sm:px-6">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <button
+                id="report-cancel"
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="btn-ghost w-full px-5 text-sm disabled:opacity-50 sm:w-auto"
+              >
+                Cancel
+              </button>
+              <button
+                id="report-submit"
+                type="submit"
+                disabled={isSubmitDisabled}
+                className="flex w-full items-center justify-center gap-2 rounded-[10px] px-5 py-[10px] text-sm font-semibold text-white transition-all disabled:opacity-60 sm:w-auto"
+                style={{ background: isSubmitDisabled ? 'rgba(249,112,102,0.6)' : 'var(--accent-secondary)', cursor: isSubmitDisabled ? 'not-allowed' : 'pointer' }}
+              >
+                {submitting ? (
+                  <>
+                    <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="3" /><path className="opacity-75" fill="white" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
+                    Submitting…
+                  </>
+                ) : (
+                  <><HiFlag size={15} /> Submit Report</>
+                )}
+              </button>
             </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-1">
-            <button
-              id="report-cancel"
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="btn-ghost px-5 text-sm disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              id="report-submit"
-              type="submit"
-              disabled={isSubmitDisabled}
-              className="px-5 py-[10px] rounded-[10px] text-sm font-semibold text-white transition-all disabled:opacity-60 flex items-center gap-2"
-              style={{ background: isSubmitDisabled ? 'rgba(249,112,102,0.6)' : 'var(--accent-secondary)', cursor: isSubmitDisabled ? 'not-allowed' : 'pointer' }}
-            >
-              {submitting ? (
-                <>
-                  <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="3" /><path className="opacity-75" fill="white" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
-                  Submitting…
-                </>
-              ) : (
-                <><HiFlag size={15} /> Submit Report</>
-              )}
-            </button>
           </div>
         </form>
       </motion.div>
@@ -487,7 +489,7 @@ function ReportUserModal({ userId, displayName, onClose }) {
 function FilePicker({ id, label, file, previewUrl, onChange }) {
   return (
     <label htmlFor={id} className="block cursor-pointer group">
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 transition-all group-hover:border-[var(--accent-primary)]">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 transition-all group-hover:border-[var(--accent-primary)] max-[420px]:flex-col max-[420px]:items-start">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-11 h-11 rounded-lg overflow-hidden bg-[var(--bg-card)] border border-[var(--border-default)] flex items-center justify-center shrink-0">
             {previewUrl ? (
@@ -501,7 +503,7 @@ function FilePicker({ id, label, file, previewUrl, onChange }) {
             <p className="text-[11px] text-[var(--text-muted)] truncate">{file?.name || 'Choose an image'}</p>
           </div>
         </div>
-        <span className="text-[11px] font-bold text-[var(--accent-primary)]">Browse</span>
+        <span className="text-[11px] font-bold text-[var(--accent-primary)] max-[420px]:ml-[52px]">Browse</span>
       </div>
       <input
         id={id}
@@ -606,9 +608,9 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onSubmit={handleSubmit}
-        className="card-premium flex w-full max-h-[85vh] max-w-xl flex-col overflow-hidden"
+        className="card-premium flex w-full max-h-[90vh] max-w-[min(95vw,42rem)] flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 pb-4 pt-5 sm:px-6">
+        <div className="flex flex-col gap-3 border-b border-[var(--border-default)] px-4 pb-4 pt-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <h2 className="text-lg font-black text-[var(--text-primary)]">Edit Profile</h2>
             <p className="text-[12px] text-[var(--text-muted)] mt-1">Update your public profile details.</p>
@@ -622,7 +624,7 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
           <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FilePicker id="profile-photo" label="Profile image" file={photoFile} previewUrl={photoPreview} onChange={setPhotoFile} />
@@ -663,9 +665,9 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
           </div>
         </div>
 
-        <div className="sticky bottom-0 flex justify-end gap-3 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-5 py-4 sm:px-6">
-          <button type="button" onClick={onClose} className="btn-ghost px-5" disabled={saving}>Cancel</button>
-          <button type="submit" className="btn-primary px-5 disabled:opacity-60" disabled={saving}>
+        <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button type="button" onClick={onClose} className="btn-ghost w-full px-5 sm:w-auto" disabled={saving}>Cancel</button>
+          <button type="submit" className="btn-primary w-full px-5 disabled:opacity-60 sm:w-auto" disabled={saving}>
             {saving ? 'Saving...' : 'Save Profile'}
           </button>
         </div>
@@ -727,18 +729,24 @@ function ProfileActionsMenu({ onReport }) {
   const MENU_HEIGHT = 48;   // single-item row height in px
   const MENU_WIDTH = 192;  // 12rem
   const GAP = 8;    // space between button top edge and menu bottom edge
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+  const placeAbove = viewportHeight ? menuPos.top > MENU_HEIGHT + GAP + 12 : true;
 
   // Position the menu above the button using fixed viewport coords
   const dropdownStyle = {
     position: 'fixed',
-    top: menuPos.top - MENU_HEIGHT - GAP,
-    right: menuPos.right,
-    width: MENU_WIDTH,
+    top: placeAbove
+      ? Math.max(12, menuPos.top - MENU_HEIGHT - GAP)
+      : Math.min(viewportHeight - MENU_HEIGHT - 12, menuPos.top + menuPos.btnHeight + GAP),
+    right: Math.max(12, menuPos.right),
+    width: typeof window !== 'undefined' ? Math.min(MENU_WIDTH, window.innerWidth - 24) : MENU_WIDTH,
+    maxHeight: 'calc(100vh - 24px)',
+    overflowY: 'auto',
+    overflowX: 'hidden',
     zIndex: 9999,
     background: 'var(--bg-card)',
     border: '1px solid var(--border-default)',
     borderRadius: '12px',
-    overflow: 'hidden',
     boxShadow: '0 -4px 24px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)',
   };
 
@@ -1010,9 +1018,24 @@ export default function Profile() {
     }
   };
 
+  const handleMobileBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/matches', { replace: true });
+  };
+
   return (
     <AppLayout>
-      <div className="max-w-[900px] mx-auto space-y-5">
+      <div className="mx-auto max-w-[900px] space-y-5 px-4 sm:px-0">
+        {!isOwnProfile ? (
+          <MobileBackButton
+            label="Matches"
+            onClick={handleMobileBack}
+            className="mb-1"
+          />
+        ) : null}
 
         {/* ── CARD 1: HERO ── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card-premium overflow-hidden">
@@ -1034,7 +1057,7 @@ export default function Profile() {
 
           <div className="px-6 pb-6">
             {/* Avatar row */}
-            <div className="flex items-end justify-between -mt-14 mb-4 relative z-10">
+            <div className="relative z-10 mb-4 -mt-14 flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="w-28 h-28 rounded-full border-4 border-[var(--bg-card)] bg-[var(--bg-secondary)] flex items-center justify-center overflow-hidden shadow-xl">
                 {photoUrl && !photoFailed ? (
                   <img
@@ -1053,7 +1076,7 @@ export default function Profile() {
                 )}
               </div>
               {isOwnProfile ? (
-                <button onClick={() => setShowEditProfile(true)} className="mb-2 px-4 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[13px] font-medium hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] transition-all flex items-center gap-1.5">
+                <button onClick={() => setShowEditProfile(true)} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-2 text-[13px] font-medium text-[var(--text-primary)] transition-all hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] sm:w-auto">
                   <HiPencil size={14} /> Edit Profile
                 </button>
               ) : null}
@@ -1084,11 +1107,11 @@ export default function Profile() {
 
             {/* Action buttons */}
             {!isOwnProfile && (
-              <div className="flex flex-wrap items-center gap-3">
-                <button onClick={() => navigate('/messages', { state: { openChatWith: { user_id: userId, user_name: displayName, user_photo: photoUrl } } })} className="flex items-center justify-center gap-2 px-6 py-[10px] rounded-[10px] border border-[var(--accent-primary)] text-[var(--accent-primary)] font-medium hover:bg-[rgba(124,111,247,0.1)] transition-all">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <button onClick={() => navigate('/messages', { state: { openChatWith: { user_id: userId, user_name: displayName, user_photo: photoUrl } } })} className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--accent-primary)] px-6 py-[10px] font-medium text-[var(--accent-primary)] transition-all hover:bg-[rgba(124,111,247,0.1)] sm:w-auto">
                   <HiChat size={18} /> Message
                 </button>
-                <button onClick={() => navigate('/sessions')} className="btn-primary flex items-center gap-2 px-6">
+                <button onClick={() => navigate('/sessions')} className="btn-primary flex w-full items-center gap-2 px-6 sm:w-auto">
                   <HiLightningBolt size={18} /> Request Session
                 </button>
                 <ProfileActionsMenu onReport={() => setShowReportModal(true)} />

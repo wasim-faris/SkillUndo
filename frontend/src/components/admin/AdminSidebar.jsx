@@ -27,7 +27,7 @@ export default function AdminSidebar({ mobileOpen = false, onClose }) {
       ) : null}
 
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-full w-[280px] flex-col border-r border-[var(--admin-border)] bg-[var(--admin-bg)] px-4 py-5 transition-transform duration-300 lg:sticky lg:top-0 lg:z-0 lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed left-0 top-0 z-50 flex h-full w-[min(88vw,280px)] flex-col border-r border-[var(--admin-border)] bg-[var(--admin-bg)] px-4 py-5 transition-transform duration-300 lg:sticky lg:top-0 lg:z-0 lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           }`}
       >
         <div className="flex items-center gap-3 px-2 pb-6">
@@ -64,4 +64,3 @@ export default function AdminSidebar({ mobileOpen = false, onClose }) {
     </>
   );
 }
-

@@ -152,14 +152,14 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 px-4 py-4 backdrop-blur-sm">
       <motion.form
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onSubmit={handleSubmit}
-        className="card-premium flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden"
+        className="card-premium flex max-h-[90vh] w-full max-w-[min(95vw,28rem)] flex-col overflow-hidden"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--border-default)] px-4 py-3">
+        <div className="flex flex-col gap-3 border-b border-[var(--border-default)] px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-base font-bold text-[var(--text-primary)]">New Session Request</h2>
             <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Choose a match, your teaching skill, and what you want to learn.</p>
@@ -288,8 +288,8 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
         </div>
 
         <div className="border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-3">
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={resetAndClose} className="btn-ghost !py-1.5 text-xs px-4" disabled={submitting}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={resetAndClose} className="btn-ghost w-full px-4 !py-1.5 text-xs sm:w-auto" disabled={submitting}>
               Cancel
             </button>
             <button
@@ -304,7 +304,7 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
                 !form.learn_skill_id ||
                 receiverTeachSkills.length === 0
               }
-              className="btn-primary flex items-center gap-1.5 !py-1.5 text-xs px-4 disabled:cursor-not-allowed disabled:opacity-60 font-bold rounded-lg"
+              className="btn-primary flex w-full items-center gap-1.5 rounded-lg px-4 !py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <HiPaperAirplane size={14} />
               {submitting ? 'Sending...' : 'Send Request'}

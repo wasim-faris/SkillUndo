@@ -302,7 +302,7 @@ export default function Skills() {
     <AppLayout>
       <div className="w-full space-y-8">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 card-premium p-4">
+        <div className="flex flex-col justify-between gap-4 card-premium p-4 md:flex-row md:items-center">
           <div className="flex items-center gap-3">
             <button
               onClick={handleBack}
@@ -316,13 +316,13 @@ export default function Skills() {
             </h1>
           </div>
           
-          <div className="flex bg-[var(--bg-secondary)] p-1 rounded-xl border border-[var(--border-default)]">
+          <div className="flex w-full flex-wrap gap-1 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-1 md:w-auto">
             {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setSearch(''); }}
                 className={`
-                  px-8 py-2 rounded-lg text-sm font-bold transition-all tracking-wider
+                  min-w-0 flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-all tracking-wider sm:px-6 md:flex-none
                   ${activeTab === tab
                     ? 'bg-[var(--accent-primary)] text-white shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -340,7 +340,7 @@ export default function Skills() {
            <div className="lg:col-span-2">
               <motion.div 
                 layout
-                className="card-premium p-6 min-h-[500px]"
+                className="card-premium min-h-[420px] p-4 sm:min-h-[500px] sm:p-6"
               >
                 <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-5 mb-6">
                    <div className="flex items-center gap-3">
@@ -406,7 +406,7 @@ export default function Skills() {
            <div className="space-y-6 min-h-0">
               <motion.div 
                 animate={{ opacity: showAdd ? 1 : 0.6, y: showAdd ? 0 : 20 }}
-                className={`card-premium p-6 flex flex-col min-h-[360px] ${!showAdd && 'pointer-events-none grayscale'}`}
+                className={`card-premium flex min-h-[320px] flex-col p-4 sm:min-h-[360px] sm:p-6 ${!showAdd && 'pointer-events-none grayscale'}`}
               >
                  <div className="flex items-center justify-between mb-6 shrink-0">
                     <div>

@@ -23,7 +23,7 @@ export default function EmptyState({
   const styles = toneClasses[tone] || toneClasses.default;
 
   return (
-    <div className={`rounded-2xl border ${styles.border} bg-[var(--admin-card)] px-6 py-10 text-center shadow-[0_16px_40px_rgba(0,0,0,0.18)] ${className}`}>
+    <div className={`rounded-2xl border ${styles.border} bg-[var(--admin-card)] px-4 py-8 text-center shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:px-6 sm:py-10 ${className}`}>
       <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${styles.icon}`}>
         {icon || <HiOutlineInbox size={26} />}
       </div>
@@ -34,7 +34,7 @@ export default function EmptyState({
       {actionLabel && onAction ? (
         <button
           onClick={onAction}
-          className="mt-6 inline-flex items-center justify-center rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--admin-text)] transition-colors hover:border-[var(--admin-accent)] hover:text-[var(--admin-accent)]"
+          className="mt-6 inline-flex w-full items-center justify-center rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--admin-text)] transition-colors hover:border-[var(--admin-accent)] hover:text-[var(--admin-accent)] sm:w-auto"
         >
           {actionLabel}
         </button>
