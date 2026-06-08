@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/u, '') || 'http://127.0.0.1:8000';
 const PROFILE_MEDIA_VERSION_KEY = 'skillswap_profile_media_version';
 
 const normalizeMediaPath = (url) => {
