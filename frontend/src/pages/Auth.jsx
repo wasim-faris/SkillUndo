@@ -392,7 +392,7 @@ export default function Auth() {
                               exit={{ height: 0, opacity: 0 }}
                               className="overflow-hidden mt-4 space-y-4"
                             >
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <Input
                                   label="City"
                                   placeholder="Your city"

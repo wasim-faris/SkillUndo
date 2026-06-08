@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { HiSearch, HiOutlinePaperAirplane, HiOutlinePhotograph, HiOutlineEmojiHappy, HiDotsVertical, HiChat } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import Avatar from '../components/ui/Avatar';
+import MobileBackButton from '../components/ui/MobileBackButton';
 import { useAuth } from '../context/AuthContext';
 import { getChats, getConversation, sendMessage } from '../api/chat';
 import { getPublicProfile } from '../api/auth';
@@ -278,10 +279,10 @@ export default function Messages() {
 
   return (
     <AppLayout>
-      <div className="card-premium h-[calc(100vh-130px)] flex overflow-hidden !p-0">
+      <div className="card-premium flex h-[calc(100dvh-184px)] flex-col overflow-hidden !p-0 lg:h-[calc(100dvh-130px)] lg:flex-row">
         
         {/* Contacts Sidebar */}
-        <div className="w-[320px] border-r border-[var(--border-default)] flex flex-col h-full bg-[var(--bg-primary)]">
+        <div className="flex h-[38dvh] w-full flex-col border-b border-[var(--border-default)] bg-[var(--bg-primary)] lg:h-full lg:w-[320px] lg:border-b-0 lg:border-r">
           
           <div className="p-4 border-b border-[var(--border-default)]">
             <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Messages</h2>
@@ -360,21 +361,28 @@ export default function Messages() {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col h-full bg-[var(--bg-card)] relative">
+        <div className="relative flex min-h-0 flex-1 flex-col bg-[var(--bg-card)]">
           
           {activeContact ? (
             <>
+              <div className="border-b border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2 md:hidden">
+                <MobileBackButton
+                  label="Messages"
+                  onClick={() => setActiveContact(null)}
+                />
+              </div>
+
               {/* Chat Header */}
-              <div className="h-[72px] border-b border-[var(--border-default)] flex items-center justify-between px-6 shrink-0 bg-[var(--bg-secondary)] bg-opacity-50 backdrop-blur-md">
-                <div className="flex items-center gap-3">
+              <div className="flex min-h-[64px] shrink-0 items-center justify-between gap-3 border-b border-[var(--border-default)] bg-[var(--bg-secondary)] bg-opacity-50 px-4 py-3 backdrop-blur-md sm:px-6">
+                <div className="flex min-w-0 items-center gap-3">
                   <Avatar 
                     firstName={activeContact.user_name?.split(' ')[0]} 
                     lastName={activeContact.user_name?.split(' ')[1]} 
                     src={activeContact.user_photo}
                     className="!w-10 !h-10 !rounded-full" 
                   />
-                  <div>
-                    <h3 className="font-bold text-[var(--text-primary)]">{activeContact.user_name}</h3>
+                  <div className="min-w-0">
+                    <h3 className="truncate font-bold text-[var(--text-primary)]">{activeContact.user_name}</h3>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-[var(--text-muted)]">
@@ -383,7 +391,7 @@ export default function Messages() {
               </div>
 
               {/* Messages */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-6 sm:px-6 sm:py-6">
                 {loadingMessages ? (
                   <div className="flex justify-center p-4">
                     <span className="text-[var(--text-muted)] text-sm animate-pulse">Loading messages...</span>
@@ -444,7 +452,7 @@ export default function Messages() {
 
                       return (
                         <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${marginTop}`}>
-                          <div className="max-w-[75%]">
+                          <div className="max-w-[88%] sm:max-w-[75%]">
                             <div className={`px-4 py-2.5 ${bubbleColor} ${corners}`}>
                               <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                             </div>
@@ -474,8 +482,8 @@ export default function Messages() {
               </div>
 
               {/* Input Area */}
-              <div className="p-4 border-t border-[var(--border-default)] bg-[var(--bg-primary)] shrink-0">
-                <div className="flex items-center gap-3 bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-xl p-2 pl-4 pr-3 focus-within:border-[var(--accent-primary)] transition-colors">
+              <div className="shrink-0 border-t border-[var(--border-default)] bg-[var(--bg-primary)] p-3 sm:p-4">
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-2 pl-4 pr-3 transition-colors focus-within:border-[var(--accent-primary)]">
                   <input 
                     type="text" 
                     value={inputText}
@@ -483,7 +491,7 @@ export default function Messages() {
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                     placeholder="Type your message..."
                     disabled={sendingMessage}
-                    className="flex-1 bg-transparent border-none text-[var(--text-primary)] text-sm focus:ring-0 outline-none placeholder-[var(--text-muted)] disabled:opacity-50"
+                    className="min-w-0 flex-1 border-none bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder-[var(--text-muted)] focus:ring-0 disabled:opacity-50"
                   />
                   <button 
                     onClick={handleSend}

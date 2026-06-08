@@ -49,7 +49,7 @@ export default function Sidebar() {
       : navItems;
 
     return (
-      <div className="flex flex-col h-full p-4 justify-between overflow-y-auto">
+      <div className="flex h-full flex-col justify-between overflow-y-auto p-4">
         <div>
           {/* Logo */}
           <div className="flex items-center gap-3 px-2 py-6 mb-8">
@@ -97,7 +97,7 @@ export default function Sidebar() {
     <>
       {/* Mobile hamburger button */}
       <button
-        className="fixed top-6 left-6 z-50 md:hidden border rounded-lg p-3 bg-[var(--bg-secondary)] border-[var(--border-default)] text-[var(--text-primary)]"
+        className="fixed left-4 top-4 z-50 rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 text-[var(--text-primary)] shadow-lg md:hidden"
         onClick={() => setOpen((v) => !v)}
         aria-label="Toggle menu"
       >
@@ -115,7 +115,7 @@ export default function Sidebar() {
       {/* Mobile drawer */}
       <aside
         className={`
-          fixed top-0 left-0 h-full w-72 z-40 transition-transform duration-300 ease-in-out md:hidden border-r bg-[var(--bg-primary)] border-[var(--border-default)]
+          fixed left-0 top-0 z-40 h-full w-[min(88vw,18rem)] border-r border-[var(--border-default)] bg-[var(--bg-primary)] transition-transform duration-300 ease-in-out md:hidden
           ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -123,7 +123,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-72 shrink-0 h-[calc(100vh-120px)] sticky top-[96px] border-r bg-[var(--bg-primary)] border-[var(--border-default)]">
+      <aside className="sticky top-[96px] hidden h-[calc(100vh-120px)] w-72 shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-primary)] md:flex">
         <SidebarContent />
       </aside>
     </>

@@ -8,10 +8,10 @@ export default function AppLayout({ children }) {
       <TopNav />
       <div className="h-[72px]" />
 
-      <main className="max-w-[1360px] mx-auto px-6 py-6 flex gap-6">
+      <main className="mx-auto flex w-full max-w-[1360px] gap-4 px-4 py-4 pb-24 min-[480px]:px-5 min-[480px]:py-5 md:gap-6 md:px-6 md:py-6 md:pb-6">
         <Sidebar />
-        
-        <div className="flex-1 min-w-0">
+
+        <div className="min-w-0 flex-1">
           {children}
         </div>
       </main>

@@ -136,12 +136,12 @@ export default function TopNav() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-[100] h-[72px] flex items-center justify-center px-6"
+    <nav className="fixed top-0 left-0 right-0 z-[100] flex h-[72px] items-center justify-center px-3 sm:px-4 lg:px-6"
          style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-default)' }}>
-      <div className="w-full max-w-[1360px] flex items-center justify-between">
+      <div className="flex w-full max-w-[1360px] items-center justify-between gap-3 min-w-0">
 
         {/* Brand & Search */}
-        <div className="flex items-center gap-8">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-6 lg:gap-8">
           <Link to="/" className="flex items-center gap-2.5 group">
             <motion.div
               whileHover={{ rotate: 12, scale: 1.1 }}
@@ -159,11 +159,11 @@ export default function TopNav() {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           
           <Link to="/messages" className="relative group">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-secondary)] border border-[var(--border-default)] group-hover:border-[var(--accent-primary)] group-hover:text-[var(--accent-primary)] text-[var(--text-secondary)] transition-all">
-              <HiChat size={20} />
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all group-hover:border-[var(--accent-primary)] group-hover:text-[var(--accent-primary)] sm:h-10 sm:w-10">
+              <HiChat size={18} className="sm:w-5 sm:h-5" />
             </div>
             {/* Unread badge example */}
             {unreadCount > 0 && (
@@ -175,9 +175,9 @@ export default function TopNav() {
           <div className="relative group" ref={notifRef}>
             <button 
               onClick={() => setIsNotifOpen(!isNotifOpen)}
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-secondary)] border border-[var(--border-default)] hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] text-[var(--text-secondary)] transition-all focus:outline-none"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] focus:outline-none sm:h-10 sm:w-10"
             >
-              <HiBell size={20} />
+              <HiBell size={18} className="sm:w-5 sm:h-5" />
             </button>
             {unreadNotifCount > 0 && (
               <span className="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-[var(--accent-primary)] text-white text-[9px] font-bold rounded-full border-2 border-[var(--bg-card)] flex items-center justify-center -translate-y-0.5 translate-x-0.5 shadow-sm">
@@ -193,7 +193,7 @@ export default function TopNav() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-3 w-[380px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] shadow-2xl overflow-hidden z-50 flex flex-col max-h-[85vh] origin-top-right ring-1 ring-black/5"
+                  className="absolute right-0 mt-3 flex max-h-[75dvh] w-[min(92vw,380px)] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] shadow-2xl origin-top-right ring-1 ring-black/5 max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[76px] max-md:mt-0 max-md:w-[min(90vw,380px)] max-md:max-h-[70vh] max-md:overflow-y-auto max-md:overflow-x-hidden sm:max-h-[85vh]"
                 >
                   <div className="p-4 border-b border-[var(--border-default)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h3 className="font-bold text-[var(--text-primary)] text-sm">Notifications</h3>
@@ -282,7 +282,8 @@ export default function TopNav() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>          <div className="h-6 w-[1px] bg-[var(--border-default)] mx-2"></div>
+          </div>
+          <div className="mx-1 h-6 w-px bg-[var(--border-default)] sm:mx-2"></div>
 
           <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <Avatar
@@ -290,16 +291,16 @@ export default function TopNav() {
               lastName={user?.name?.split(' ')[1] || 'S'}
               src={user?.photo}
               size="sm"
-              className="!w-10 !h-10 !rounded-full border-2 border-[var(--accent-primary)]"
+              className="!h-9 !w-9 !rounded-full border-2 border-[var(--accent-primary)] sm:!h-10 sm:!w-10"
             />
           </Link>
 
           <button
             onClick={handleLogout}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-secondary)] border border-[var(--border-default)] hover:border-red-500/30 hover:bg-red-500/10 text-[var(--text-secondary)] hover:text-red-400 transition-all duration-200 active:scale-95 shrink-0"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all duration-200 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 active:scale-95 sm:h-10 sm:w-10"
             title="Logout"
           >
-            <HiLogout size={20} />
+            <HiLogout size={18} className="sm:w-5 sm:h-5" />
           </button>
         </div>
       </div>

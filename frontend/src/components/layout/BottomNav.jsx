@@ -18,7 +18,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm h-16 bg-[var(--bg-card)] border border-[var(--border-default)] backdrop-blur-xl rounded-full z-50 flex items-center justify-around px-4 shadow-2xl">
+    <div className="fixed bottom-4 left-1/2 z-50 flex h-16 w-[min(96vw,24rem)] -translate-x-1/2 items-center justify-around rounded-full border border-[var(--border-default)] bg-[var(--bg-card)] px-2 shadow-2xl backdrop-blur-xl md:hidden">
       {navItems.map((item, idx) => {
         if (item.action) {
           return (
@@ -27,9 +27,9 @@ export default function BottomNav() {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={item.action}
-              className="flex flex-col items-center justify-center min-w-[50px]"
+              className="flex min-w-[44px] flex-col items-center justify-center"
             >
-              <item.icon size={32} className="text-[var(--accent-primary)]" />
+              <item.icon size={28} className="text-[var(--accent-primary)]" />
             </motion.button>
           );
         }
@@ -39,17 +39,16 @@ export default function BottomNav() {
             key={idx}
             to={item.to}
             className={({ isActive }) => `
-              relative flex flex-col items-center justify-center min-w-[50px] transition-all duration-300
+              relative flex min-w-[44px] flex-col items-center justify-center transition-all duration-300
               ${isActive ? 'text-[var(--accent-primary)] scale-110' : 'text-[var(--text-muted)]'}
             `}
           >
-            <item.icon size={24} />
-            <span className="text-[9px] font-black uppercase tracking-tighter mt-0.5">{item.label}</span>
+            <item.icon size={22} />
+            <span className="mt-0.5 text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
           </NavLink>
         );
       })}
     </div>
   );
 }
-
 

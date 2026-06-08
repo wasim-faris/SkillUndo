@@ -18,8 +18,8 @@ export default function DashboardTable({
   const hasRows = Array.isArray(rows) && rows.length > 0;
 
   return (
-    <section className={`rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-card)] shadow-[0_16px_40px_rgba(0,0,0,0.18)] ${className}`}>
-      <div className="border-b border-[var(--admin-border)] px-5 py-4">
+    <section className={`overflow-hidden rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-card)] shadow-[0_16px_40px_rgba(0,0,0,0.18)] ${className}`}>
+      <div className="border-b border-[var(--admin-border)] px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-[var(--admin-text)]">{title}</h2>
@@ -45,13 +45,13 @@ export default function DashboardTable({
         </div>
       ) : hasRows ? (
         <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse">
+          <table className="min-w-[640px] border-collapse sm:min-w-full">
             <thead className="bg-[var(--admin-surface)]">
               <tr>
                 {columns.map((column) => (
                   <th
                     key={column.key}
-                    className={`px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)] ${column.headerClassName || ''}`}
+                    className={`px-4 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)] sm:px-5 ${column.headerClassName || ''}`}
                   >
                     {column.label}
                   </th>
@@ -65,7 +65,7 @@ export default function DashboardTable({
                     const value = column.render ? column.render(row, rowIndex) : row?.[column.key];
 
                     return (
-                      <td key={column.key} className={`px-5 py-4 text-sm text-[var(--admin-text)] ${column.cellClassName || ''}`}>
+                      <td key={column.key} className={`px-4 py-4 text-sm text-[var(--admin-text)] sm:px-5 ${column.cellClassName || ''}`}>
                         {value}
                       </td>
                     );
@@ -89,4 +89,3 @@ export default function DashboardTable({
     </section>
   );
 }
-

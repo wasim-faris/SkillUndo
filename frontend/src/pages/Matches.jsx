@@ -147,7 +147,7 @@ export default function Matches() {
             />
           </div>
 
-          <button onClick={() => openRequestModal()} className="btn-primary whitespace-nowrap px-5">
+          <button onClick={() => openRequestModal()} className="btn-primary w-full whitespace-nowrap px-5 sm:w-auto">
             New Session Request
           </button>
         </div>

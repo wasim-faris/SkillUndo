@@ -25,16 +25,15 @@ export default function StatCard({ icon, label, value, helper, tone = 'neutral',
   const styles = toneStyles[tone] || toneStyles.neutral;
 
   return (
-    <div className={`rounded-2xl border ${styles.border} bg-[var(--admin-card)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.18)] ${className}`}>
-      <div className="mb-6 flex items-start justify-between gap-3">
+    <div className={`rounded-2xl border ${styles.border} bg-[var(--admin-card)] p-4 shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:p-5 ${className}`}>
+      <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6">
         <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${styles.icon}`}>
           {icon}
         </div>
       </div>
-      <div className="text-3xl font-semibold tracking-tight text-[var(--admin-text)]">{value}</div>
+      <div className="text-2xl font-semibold tracking-tight text-[var(--admin-text)] sm:text-3xl">{value}</div>
       <div className="mt-2 text-sm font-medium text-[var(--admin-text-secondary)]">{label}</div>
       {helper ? <div className="mt-3 text-xs text-[var(--admin-text-secondary)]">{helper}</div> : null}
     </div>
   );
 }
-
