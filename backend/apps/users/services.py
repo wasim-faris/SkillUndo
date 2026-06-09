@@ -6,8 +6,10 @@ from datetime import timedelta
 import secrets
 from apps.users.models import OTPVerification
 from django.core.mail import send_mail
+from config import settings
 
 def register_user(validated_data):
+    print("working correclty")
     """
     creates a new user and their profile.
     and return the created user
@@ -23,7 +25,9 @@ def register_user(validated_data):
     )
 
     Profile.objects.create(user=user)
+    print("BEFORE OTP")
     generate_otp(user)
+    print("AFTER OTP")
     return user
 
 
@@ -117,6 +121,7 @@ def validate_reset_password(token_id, new_password):
 
 
 def generate_otp(user):
+    print("comming here")
     """
     Creates 6 digit OTP and send to email
     Delete old OTP first
@@ -126,22 +131,20 @@ def generate_otp(user):
     OTPVerification.objects.filter(user=user).delete()
 
     code = str(secrets.randbelow(900000) + 100000)
+    
+    print(code)
 
     OTPVerification.objects.create(
         user=user, code=code, expires_at=timezone.now() + timedelta(minutes=10)
     )
-
-    try:
-        send_mail(
-            subject="SkillSwap Verification Code",
-            message=f"Your OTP is: {code}",
-            from_email=None,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
-        print("EMAIL SENT SUCCESSFULLY")
-    except Exception as e:
-        print("EMAIL ERROR:", str(e))
+    print("FROM EMAIL:", settings.DEFAULT_FROM_EMAIL)
+    send_mail(
+    subject="SkillSwap Verification Code",
+    message=f"Your OTP is: {code}",
+    from_email=settings.DEFAULT_FROM_EMAIL,
+    recipient_list=[user.email],
+    fail_silently=False,
+)
         
     return True
 
