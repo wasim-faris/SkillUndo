@@ -7,6 +7,7 @@ import secrets
 from apps.users.models import OTPVerification
 from django.core.mail import send_mail
 from config import settings
+import requests
 
 def register_user(validated_data):
     print("working correclty")
@@ -138,21 +139,26 @@ def generate_otp(user):
         user=user, code=code, expires_at=timezone.now() + timedelta(minutes=10)
     )
     print("FROM EMAIL:", settings.DEFAULT_FROM_EMAIL)
-    
-    # try:
-        
-    #     send_mail(
-    #         subject="SkillSwap Verification Code",
-    #         message=f"Your OTP is: {code}",
-    #         from_email=settings.DEFAULT_FROM_EMAIL,
-    #         recipient_list=[user.email],
-    #         fail_silently=False,
-    #         )
-        
-    # except Exception as e:
-    #     print("ERROR", e) 
-    
+     
     print("BEFORE SEND")
+    
+    requests.post(
+    "https://api.brevo.com/v3/smtp/email",
+    headers={
+        "accept": "application/json",
+        "api-key": settings.BREVO_API_KEY,
+        "content-type": "application/json",
+    },
+    json={
+        "sender": {
+            "name": "SkillUndo",
+            "email": "waseemfaris179@gmail.com"
+        },
+        "to": [{"email": user.email}],
+        "subject": "SkillSwap Verification Code",
+        "textContent": f"Your OTP is {code}",
+    },
+)
         
     print("AFTER EMAIL")
     return True
