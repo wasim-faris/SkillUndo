@@ -131,7 +131,17 @@ def generate_otp(user):
         user=user, code=code, expires_at=timezone.now() + timedelta(minutes=10)
     )
 
-    print(code)
+    try:
+        send_mail(
+            subject="SkillSwap Verification Code",
+            message=f"Your OTP is: {code}",
+            from_email=None,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+        print("EMAIL SENT SUCCESSFULLY")
+    except Exception as e:
+        print("EMAIL ERROR:", str(e))
         
     return True
 
