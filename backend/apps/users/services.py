@@ -139,18 +139,20 @@ def generate_otp(user):
     )
     print("FROM EMAIL:", settings.DEFAULT_FROM_EMAIL)
     
-    try:
+    # try:
         
-        send_mail(
-            subject="SkillSwap Verification Code",
-            message=f"Your OTP is: {code}",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-            )
+    #     send_mail(
+    #         subject="SkillSwap Verification Code",
+    #         message=f"Your OTP is: {code}",
+    #         from_email=settings.DEFAULT_FROM_EMAIL,
+    #         recipient_list=[user.email],
+    #         fail_silently=False,
+    #         )
         
-    except Exception as e:
-        print("ERROR", e)
+    # except Exception as e:
+    #     print("ERROR", e) 
+    
+    print("BEFORE SEND")
         
     print("AFTER EMAIL")
     return True
