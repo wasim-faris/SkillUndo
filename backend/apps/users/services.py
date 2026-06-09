@@ -5,9 +5,52 @@ from django.utils import timezone
 from datetime import timedelta
 import secrets
 from apps.users.models import OTPVerification
-from django.core.mail import send_mail
 from config import settings
 import requests
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from django.utils.crypto import get_random_string
+
+
+def authenticate_google_token(token):
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+        )
+    except ValueError:
+        return None
+
+    if idinfo.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]:
+        return None
+
+    if not idinfo.get("email_verified"):
+        return None
+
+    email = idinfo.get("email")
+    if not email:
+        return None
+
+    name = idinfo.get("name") or email.split("@")[0]
+    user = User.objects.filter(email=email).first()
+
+    if user:
+        if user and not user.is_verified:
+            user.is_verified = True
+            user.save(update_fields=["is_verified"])
+    else:
+        password = get_random_string(20)
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            name=name,
+            is_verified=True,
+        )
+        Profile.objects.create(user=user)
+
+    return get_tokens_for_user(user)
+
 
 def register_user(validated_data):
     print("working correclty")
@@ -132,34 +175,31 @@ def generate_otp(user):
     OTPVerification.objects.filter(user=user).delete()
 
     code = str(secrets.randbelow(900000) + 100000)
-    
+
     print(code)
 
     OTPVerification.objects.create(
         user=user, code=code, expires_at=timezone.now() + timedelta(minutes=10)
     )
     print("FROM EMAIL:", settings.DEFAULT_FROM_EMAIL)
-     
+
     print("BEFORE SEND")
-    
+
     requests.post(
-    "https://api.brevo.com/v3/smtp/email",
-    headers={
-        "accept": "application/json",
-        "api-key": settings.BREVO_API_KEY,
-        "content-type": "application/json",
-    },
-    json={
-        "sender": {
-            "name": "SkillUndo",
-            "email": "waseemfaris179@gmail.com"
+        "https://api.brevo.com/v3/smtp/email",
+        headers={
+            "accept": "application/json",
+            "api-key": settings.BREVO_API_KEY,
+            "content-type": "application/json",
         },
-        "to": [{"email": user.email}],
-        "subject": "SkillSwap Verification Code",
-        "textContent": f"Your OTP is {code}",
-    },
-)
-        
+        json={
+            "sender": {"name": "SkillUndo", "email": "waseemfaris179@gmail.com"},
+            "to": [{"email": user.email}],
+            "subject": "SkillSwap Verification Code",
+            "textContent": f"Your OTP is {code}",
+        },
+    )
+
     print("AFTER EMAIL")
     return True
 

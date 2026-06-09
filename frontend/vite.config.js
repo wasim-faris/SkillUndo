@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -50,15 +51,24 @@ function serveBackendMedia() {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), serveBackendMedia()],
-  server: {
-    historyApiFallback: true,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-        secure: false,
+export default defineConfig(({ mode }) => {
+  const frontendEnv = loadEnv(mode, __dirname, 'VITE_')
+  const rootEnv = loadEnv(mode, path.resolve(__dirname, '..'), 'GOOGLE_')
+  const googleClientId = frontendEnv.VITE_GOOGLE_CLIENT_ID || rootEnv.GOOGLE_CLIENT_ID || ''
+
+  return {
+    plugins: [react(), serveBackendMedia()],
+    define: {
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(googleClientId),
+    },
+    server: {
+      historyApiFallback: true,
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:8000',
+          changeOrigin: true,
+          secure: false,
+        }
       }
     }
   }

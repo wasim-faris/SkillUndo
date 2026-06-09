@@ -14,7 +14,6 @@ from pathlib import Path
 from decouple import config
 from datetime import timedelta
 import dj_database_url
-import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -73,7 +72,6 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -105,11 +103,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    "default": dj_database_url.config(
-        default=config("DATABASE_URL")
-    )
-}
+DATABASES = {"default": dj_database_url.config(default=config("DATABASE_URL"))}
 
 
 CLOUDINARY_STORAGE = {
@@ -194,3 +188,4 @@ EMAIL_HOST_PASSWORD = config("BREVO_SMTP_KEY")
 DEFAULT_FROM_EMAIL = config("BREVO_EMAIL")
 BREVO_API_KEY = config("BREVO_API_KEY")
 
+GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID")

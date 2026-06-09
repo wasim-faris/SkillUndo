@@ -11,6 +11,7 @@ from .views import (
     ResendOTPView,
     PublicProfileView,
     PublicUserSkillView,
+    GoogleAuthView,
 )
 
 urlpatterns = [
@@ -27,6 +28,7 @@ urlpatterns = [
     ),
     path("verify-otp/", VerifyOTPView.as_view(), name="otp-verify"),
     path("resend-otp/", ResendOTPView.as_view(), name="resend-otp"),
+    path("google/", GoogleAuthView.as_view(), name="google-auth"),
     path("profile/<uuid:user_id>/", PublicProfileView.as_view(), name="public-profile"),
     path("user/<uuid:user_id>/", PublicUserSkillView.as_view()),
 ]

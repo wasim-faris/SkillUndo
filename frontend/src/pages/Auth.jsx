@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { HiLightningBolt, HiChevronRight, HiArrowRight } from 'react-icons/hi';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GoogleLogin } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { useAuth } from '../context/AuthContext';
-import { getProfile } from '../api/auth';
+import { getProfile, googleLogin } from '../api/auth';
 import { getLandingPath } from '../utils/admin';
+import { hasGoogleClientId } from '../utils/googleAuth';
 import api from '../api/axios';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -14,6 +16,30 @@ import AuthShowcase from '../components/ui/AuthShowcase';
 
 /* ─── email regex (RFC-5322 lite) ─────────────────────────────── */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function GoogleLogoIcon({ loading = false }) {
+  if (loading) {
+    return (
+      <span
+        aria-hidden="true"
+        className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
+      />
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 48 48"
+      className="h-5 w-5 flex-shrink-0"
+    >
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.72 1.23 9.23 3.64l6.9-6.9C36.01 2.77 30.49 0 24 0 14.82 0 6.92 5.27 3.16 12.97l8.02 6.22C12.96 13.14 18 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.1 24.55c0-1.61-.14-2.78-.45-4.01H24v7.59h12.66c-.26 1.89-1.49 4.71-4.28 6.62l6.6 5.12c3.95-3.64 7.12-9.03 7.12-15.32z" />
+      <path fill="#FBBC05" d="M11.18 28.95A14.5 14.5 0 0 1 10.4 24c0-1.72.3-3.38.78-4.95l-8.02-6.22A24 24 0 0 0 0 24c0 3.86.92 7.5 2.56 10.72l8.62-5.77z" />
+      <path fill="#34A853" d="M24 48c6.49 0 12-2.14 16-5.83l-6.6-5.12c-1.77 1.24-4.14 2.1-9.4 2.1-6 0-11.04-3.64-12.82-8.6l-8.62 5.77C6.92 42.73 14.82 48 24 48z" />
+    </svg>
+  );
+}
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -26,10 +52,122 @@ export default function Auth() {
   } = useFormErrors();
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleButtonWidth, setGoogleButtonWidth] = useState(() => {
+    if (typeof window === 'undefined') return 320;
+    return Math.min(320, Math.max(240, window.innerWidth - 48));
+  });
+  const googleButtonHostRef = useRef(null);
+  const googleAuthTimeoutRef = useRef(null);
+  const googleAuthInFlightRef = useRef(false);
   const [mode, setMode] = useState(
     location.pathname === '/register' ? 'register' : 'login'
   );
   const isLogin = mode === 'login';
+  const googleEnabled = hasGoogleClientId;
+
+  useEffect(() => {
+    const updateGoogleButtonWidth = () => {
+      const nextWidth = Math.min(320, Math.max(240, window.innerWidth - 48));
+      setGoogleButtonWidth(nextWidth);
+    };
+
+    updateGoogleButtonWidth();
+    window.addEventListener('resize', updateGoogleButtonWidth);
+    return () => window.removeEventListener('resize', updateGoogleButtonWidth);
+  }, []);
+
+  useEffect(() => () => {
+    if (googleAuthTimeoutRef.current) {
+      window.clearTimeout(googleAuthTimeoutRef.current);
+    }
+    googleAuthInFlightRef.current = false;
+  }, []);
+
+  const clearGoogleAuthState = useCallback(() => {
+    if (googleAuthTimeoutRef.current) {
+      window.clearTimeout(googleAuthTimeoutRef.current);
+      googleAuthTimeoutRef.current = null;
+    }
+    googleAuthInFlightRef.current = false;
+    setGoogleLoading(false);
+  }, []);
+
+  const triggerGoogleAuth = useCallback(() => {
+    if (googleAuthInFlightRef.current) return;
+    googleAuthInFlightRef.current = true;
+
+    clearAll();
+    setGoogleLoading(true);
+
+    const host = googleButtonHostRef.current;
+    const target = host?.querySelector('button, [role="button"]');
+
+    if (!target) {
+      clearGoogleAuthState();
+      toast.error('Google sign in is not ready yet. Please try again.', { id: 'google-unavailable' });
+      return;
+    }
+
+    googleAuthTimeoutRef.current = window.setTimeout(() => {
+      clearGoogleAuthState();
+      toast.error('Google sign in timed out. Please try again.', { id: 'google-timeout' });
+    }, 60000);
+
+    target.click();
+  }, [clearAll, clearGoogleAuthState]);
+
+  const handleGoogleSuccess = async ({ credential }) => {
+    if (!credential) {
+      clearGoogleAuthState();
+      toast.error('Google sign in failed. Please try again.', { id: 'google-error' });
+      return;
+    }
+
+    if (googleAuthTimeoutRef.current) {
+      window.clearTimeout(googleAuthTimeoutRef.current);
+      googleAuthTimeoutRef.current = null;
+    }
+
+    clearAll();
+    try {
+      const response = await googleLogin(credential);
+      const tokens = response.data.data;
+      let profileData = null;
+
+      localStorage.setItem('access_token', tokens.access);
+      localStorage.setItem('refresh_token', tokens.refresh);
+
+      try {
+        const profileRes = await getProfile();
+        profileData = profileRes.data.data;
+      } catch {
+        profileData = { email: '', name: 'User' };
+      }
+
+      login(tokens, profileData);
+      toast.success('Signed in with Google successfully!', { id: 'google-success' });
+      navigate(getLandingPath(profileData), { replace: true });
+    } catch (err) {
+      if (!err.response) {
+        toast.error('Network error. Please try again.', { id: 'google-network' });
+      } else {
+        const result = setApiErrors(err);
+        if (result?.message) {
+          toast.error(result.message, { id: 'google-api-error' });
+        } else {
+          toast.error('Google sign in failed. Please try again.', { id: 'google-api-error' });
+        }
+      }
+    } finally {
+      clearGoogleAuthState();
+    }
+  };
+
+  const handleGoogleError = () => {
+    clearGoogleAuthState();
+    toast.error('Google sign in could not be completed. Please try again.', { id: 'google-error' });
+  };
 
   const [form, setForm] = useState({
     name: '', email: '', password: '', confirmPassword: '',
@@ -336,21 +474,40 @@ export default function Auth() {
                     autoComplete="username"
                   />
 
-                  <Input
-                    ref={passwordRef}
-                    id="auth-password"
-                    label="Password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={form.password}
-                    onChange={handleChange('password')}
-                    onBlur={handleBlur('password')}
-                    error={fe('password')}
-                    aria-invalid={!!fe('password')}
-                    aria-describedby={fe('password') ? 'auth-password-error' : undefined}
-                    errorId="auth-password-error"
-                    autoComplete={isLogin ? 'current-password' : 'new-password'}
-                  />
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-start justify-between gap-3">
+                      <label
+                        htmlFor="auth-password"
+                        className="min-w-0 text-xs font-semibold text-[var(--text-secondary)] ml-1 uppercase tracking-wider opacity-85"
+                      >
+                        Password
+                      </label>
+
+                      {isLogin && (
+                        <Link
+                          to="/forgot-password"
+                          className="auth-forgot-link shrink-0 whitespace-nowrap text-right text-[11px] sm:text-xs"
+                        >
+                          Forgot Password?
+                        </Link>
+                      )}
+                    </div>
+
+                    <Input
+                      ref={passwordRef}
+                      id="auth-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={form.password}
+                      onChange={handleChange('password')}
+                      onBlur={handleBlur('password')}
+                      error={fe('password')}
+                      aria-invalid={!!fe('password')}
+                      aria-describedby={fe('password') ? 'auth-password-error' : undefined}
+                      errorId="auth-password-error"
+                      autoComplete={isLogin ? 'current-password' : 'new-password'}
+                    />
+                  </div>
 
                   {!isLogin && (
                     <>
@@ -447,12 +604,91 @@ export default function Auth() {
                   </AnimatePresence>
 
                   {/* Submit */}
-                  <div style={{ paddingTop: '0.5rem' }}>
+                  <div className="pt-2">
                     <Button type="submit" fullWidth loading={loading} size="lg" disabled={loading}>
                       {isLogin ? 'Sign In' : 'Get Started'}
                       <HiArrowRight className="text-lg transition-transform duration-200 group-hover:translate-x-0.5" />
                     </Button>
                   </div>
+
+                  {isLogin && googleEnabled && (
+                    <div className="mt-3 flex flex-col gap-3">
+                      <div className="flex items-center justify-center gap-3 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)] text-center">
+                        <span className="h-px flex-1 bg-[var(--border-default)]" />
+                        <span>Continue with Google</span>
+                        <span className="h-px flex-1 bg-[var(--border-default)]" />
+                      </div>
+
+                      <div className="relative w-full" ref={googleButtonHostRef}>
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 overflow-hidden opacity-0"
+                        >
+                          <GoogleLogin
+                            onSuccess={handleGoogleSuccess}
+                            onError={handleGoogleError}
+                            useOneTap={false}
+                            width={googleButtonWidth}
+                            text="continue_with"
+                            shape="rectangular"
+                            theme="outline"
+                            logo_alignment="center"
+                            containerProps={{
+                              className: 'w-full flex justify-center overflow-hidden px-2 sm:px-0',
+                              style: { maxWidth: '320px' },
+                            }}
+                            disabled={googleLoading}
+                          />
+                        </div>
+
+                        <motion.button
+                          type="button"
+                          onClick={triggerGoogleAuth}
+                          disabled={googleLoading}
+                          whileHover={googleLoading ? {} : { y: -1, scale: 1.01 }}
+                          whileTap={googleLoading ? {} : { scale: 0.99 }}
+                          className="
+                            inline-flex w-full items-center justify-center gap-3 rounded-xl border
+                            border-[rgba(17,24,39,0.1)] bg-white px-6 py-3.5 text-sm font-semibold text-slate-900
+                            shadow-[0_10px_28px_rgba(15,23,42,0.16)] transition-all duration-200
+                            hover:bg-slate-50 hover:shadow-[0_16px_34px_rgba(15,23,42,0.2)]
+                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(124,111,247,0.2)]
+                            focus-visible:ring-offset-0 disabled:cursor-wait disabled:opacity-100
+                          "
+                        >
+                          <GoogleLogoIcon loading={googleLoading} />
+                          <span className="flex min-w-0 items-center justify-center gap-2">
+                            <span className="truncate">
+                              {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
+                            </span>
+                          </span>
+                        </motion.button>
+                      </div>
+                    </div>
+                  )}
+
+                  <AnimatePresence>
+                    {googleLoading && (
+                      <motion.div
+                        key="google-loading-overlay"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(10,10,15,0.42)] px-4 backdrop-blur-[3px]"
+                      >
+                        <div className="flex w-full max-w-[22rem] flex-col items-center gap-4 rounded-2xl border border-white/10 bg-[rgba(17,18,24,0.86)] px-6 py-7 text-center shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+                          <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/15 border-t-[var(--accent-primary)]" />
+                          <div className="space-y-1">
+                            <p className="text-base font-semibold text-white">Signing you in...</p>
+                            <p className="text-sm leading-6 text-[var(--text-secondary)]">
+                              Please wait while we verify your Google account.
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </form>
 
                 {/* ── Toggle + Forgot ── */}
@@ -462,16 +698,11 @@ export default function Auth() {
                     <button
                       type="button"
                       onClick={() => setMode(isLogin ? 'register' : 'login')}
-                      className="auth-link-btn"
+                      className="auth-link-btn whitespace-nowrap"
                     >
                       {isLogin ? 'Join now' : 'Sign in'}
                     </button>
                   </p>
-                  {isLogin && (
-                    <Link to="/forgot-password" className="auth-forgot-link">
-                      Forgot password?
-                    </Link>
-                  )}
                 </div>
 
               </motion.div>
