@@ -5,7 +5,7 @@ from django.utils import timezone
 from datetime import timedelta
 import secrets
 from apps.users.models import OTPVerification
-
+from django.core.mail import send_mail
 
 def register_user(validated_data):
     """
@@ -131,6 +131,12 @@ def generate_otp(user):
         user=user, code=code, expires_at=timezone.now() + timedelta(minutes=10)
     )
 
+    send_mail(
+        subject="SkillSwap Verification Code",
+        message=f"Your OTP is: {code}",
+        from_email=None,
+        recipient_list=[user.email],
+        )
     print(code)
 
     return True
