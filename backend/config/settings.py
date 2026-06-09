@@ -179,6 +179,7 @@ CORS_ALLOW_ALL_ORIGINS = True  # Set to False and use CORS_ALLOWED_ORIGINS in pr
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://skill-undo.vercel.app",
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

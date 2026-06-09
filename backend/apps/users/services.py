@@ -125,20 +125,23 @@ def generate_otp(user):
     # delete old otp if exists
     OTPVerification.objects.filter(user=user).delete()
 
-    code = code = str(secrets.randbelow(900000) + 100000)
+    code = str(secrets.randbelow(900000) + 100000)
 
     OTPVerification.objects.create(
         user=user, code=code, expires_at=timezone.now() + timedelta(minutes=10)
     )
 
-    send_mail(
+    try:
+        send_mail(
         subject="SkillSwap Verification Code",
         message=f"Your OTP is: {code}",
         from_email=None,
         recipient_list=[user.email],
-        )
-    print(code)
-
+        fail_silently=False,
+    )
+    except Exception as e:
+        print("EMAIL ERROR:", e)
+        
     return True
 
 
