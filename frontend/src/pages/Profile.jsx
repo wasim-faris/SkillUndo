@@ -16,6 +16,7 @@ import { getMatches, getUserSkills, getPublicUserSkills } from '../api/skills';
 import { getUserActivity } from '../api/sessions';
 import api from '../api/axios';
 import MobileBackButton from '../components/ui/MobileBackButton';
+import { validateImageFile } from '../utils/image';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/u, '') || 'http://127.0.0.1:8000';
@@ -528,7 +529,35 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
   }));
   const [photoFile, setPhotoFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
+  const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const validateSelectedFile = (file) => {
+    if (!file) return '';
+    const validation = validateImageFile(file);
+    return validation.valid ? '' : validation.error;
+  };
+
+  const handleFileChange = (field) => (selectedFile) => {
+    if (!selectedFile) {
+      setFormError('');
+      if (field === 'photo') setPhotoFile(null);
+      else setBannerFile(null);
+      return;
+    }
+
+    const error = validateSelectedFile(selectedFile);
+    if (error) {
+      setFormError(error);
+      if (field === 'photo') setPhotoFile(null);
+      else setBannerFile(null);
+      return;
+    }
+
+    setFormError('');
+    if (field === 'photo') setPhotoFile(selectedFile);
+    else setBannerFile(selectedFile);
+  };
 
   const photoPreview = useMemo(() => (
     photoFile ? URL.createObjectURL(photoFile) : photoUrl
@@ -565,6 +594,15 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormError('');
+
+    const photoError = validateSelectedFile(photoFile);
+    const bannerError = validateSelectedFile(bannerFile);
+    if (photoError || bannerError) {
+      setFormError(photoError || bannerError);
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -625,10 +663,15 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+          {formError && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {formError}
+            </div>
+          )}
           <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FilePicker id="profile-photo" label="Profile image" file={photoFile} previewUrl={photoPreview} onChange={setPhotoFile} />
-              <FilePicker id="profile-banner" label="Banner image" file={bannerFile} previewUrl={bannerPreview} onChange={setBannerFile} />
+              <FilePicker id="profile-photo" label="Profile image" file={photoFile} previewUrl={photoPreview} onChange={handleFileChange('photo')} />
+              <FilePicker id="profile-banner" label="Banner image" file={bannerFile} previewUrl={bannerPreview} onChange={handleFileChange('banner')} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -668,7 +711,15 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
         <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
           <button type="button" onClick={onClose} className="btn-ghost w-full px-5 sm:w-auto" disabled={saving}>Cancel</button>
           <button type="submit" className="btn-primary w-full px-5 disabled:opacity-60 sm:w-auto" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Profile'}
+            {saving ? (
+              <span className="relative inline-flex items-center justify-center">
+                <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-transparent">Save Profile</span>
+              </span>
+            ) : 'Save Profile'}
           </button>
         </div>
       </motion.form>
