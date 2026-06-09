@@ -152,6 +152,7 @@ def generate_otp(user):
     except Exception as e:
         print("ERROR", e)
         
+    print("AFTER EMAIL")
     return True
 
 
