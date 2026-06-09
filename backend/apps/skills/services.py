@@ -51,13 +51,12 @@ def get_matches_for_user(user):
 
     # Find matching Users (not UserSkills)
     matched_users = (
-        User.objects.filter(
-            user_skills__skill_id__in=user_want, user_skills__skill_type="teach"
-        )
-        .filter(user_skills__skill_id__in=user_teaches, user_skills__skill_type="learn")
-        .exclude(id=user.id)
-        .select_related("profile")
-        .distinct()
+    User.objects.filter(
+        user_skills__skill_id__in=user_want,
+        user_skills__skill_type="teach",
     )
+    .exclude(id=user.id)
+    .distinct()
+)
 
     return matched_users
