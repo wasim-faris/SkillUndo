@@ -11,6 +11,7 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     OTPVerifySerializer,
     ResendOTPSerializer,
+    GoogleAuthSerializer,
 )
 from rest_framework.views import APIView
 from .services import (
@@ -24,6 +25,7 @@ from .services import (
     verify_otp,
     resend_otp,
     get_tokens_for_user,
+    authenticate_google_token,
 )
 from core.responses import success_response, error_response
 from core.permissions import IsOwner
@@ -94,6 +96,25 @@ class ResendOTPView(APIView):
 
 
 @method_decorator(ratelimit(key="ip", rate="5/m", block=True), name="dispatch")
+class GoogleAuthView(APIView):
+
+    permission_classes = [AllowAny]
+
+    @method_decorator(ratelimit(key="ip", rate="5/m", block=True), name="dispatch")
+    def post(self, request):
+        serializer = GoogleAuthSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(message=serializer.errors, status_code=400)
+
+        tokens = authenticate_google_token(serializer.validated_data["token"])
+        if not tokens:
+            return error_response(
+                message="Invalid Google account or token.", status_code=400
+            )
+
+        return success_response(data=tokens, message="Google sign in successful")
+
+
 class LoginView(APIView):
 
     permission_classes = [AllowAny]

@@ -111,6 +111,10 @@ class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(required=True)
 
 
+class GoogleAuthSerializer(serializers.Serializer):
+    token = serializers.CharField(write_only=True, required=True)
+
+
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(write_only=True, required=True)
 
