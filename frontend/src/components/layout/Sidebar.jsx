@@ -12,6 +12,7 @@ import {
   HiXMark,
 } from 'react-icons/hi2';
 import Avatar from '../ui/Avatar';
+import LogoutModal from '../ui/LogoutModal';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -33,8 +34,9 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const handleLogout = async () => {
+  const handleLogoutConfirm = async () => {
     await logout();
     toast.success('Logged out successfully.');
     navigate('/', { replace: true });
@@ -82,7 +84,7 @@ export default function Sidebar() {
             </div>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => { setOpen(false); setShowLogoutModal(true); }}
             className="flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-semibold w-full text-red-400 hover:text-red-300 hover:bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.05)] hover:border-[rgba(239,68,68,0.2)] transition-all duration-200 group active:scale-[0.98]"
           >
             <HiArrowRightOnRectangle size={20} className="transition-transform group-hover:translate-x-0.5" />
@@ -126,6 +128,13 @@ export default function Sidebar() {
       <aside className="sticky top-[96px] hidden h-[calc(100vh-120px)] w-72 shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-primary)] md:flex">
         <SidebarContent />
       </aside>
+
+      {showLogoutModal && (
+        <LogoutModal
+          onCancel={() => setShowLogoutModal(false)}
+          onConfirm={handleLogoutConfirm}
+        />
+      )}
     </>
   );
 }

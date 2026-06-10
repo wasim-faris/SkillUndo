@@ -646,56 +646,58 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onSubmit={handleSubmit}
-        className="card-premium flex w-full max-h-[90vh] max-w-[min(95vw,42rem)] flex-col overflow-hidden"
+        className="card-premium flex w-full max-h-[88svh] max-w-[min(95vw,42rem)] flex-col overflow-hidden"
       >
-        <div className="flex flex-col gap-3 border-b border-[var(--border-default)] px-4 pb-4 pt-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        {/* Header — always fully visible */}
+        <div className="flex shrink-0 flex-col gap-2.5 border-b border-[var(--border-default)] px-4 pb-3.5 pt-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h2 className="text-lg font-black text-[var(--text-primary)]">Edit Profile</h2>
-            <p className="text-[12px] text-[var(--text-muted)] mt-1">Update your public profile details.</p>
+            <h2 className="text-base font-black text-[var(--text-primary)] sm:text-lg">Edit Profile</h2>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Update your public profile details.</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex items-center justify-center"
+            className="w-9 h-9 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex items-center justify-center self-start sm:self-auto"
           >
             <HiX size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           {formError && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {formError}
             </div>
           )}
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <FilePicker id="profile-photo" label="Profile image" file={photoFile} previewUrl={photoPreview} onChange={handleFileChange('photo')} />
               <FilePicker id="profile-banner" label="Banner image" file={bannerFile} previewUrl={bannerPreview} onChange={handleFileChange('banner')} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="block">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Name</span>
-                <input value={form.name} onChange={updateField('name')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                <input value={form.name} onChange={updateField('name')} className="mt-1.5 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
               </label>
               <label className="block">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Headline</span>
-                <input value={form.headline} onChange={updateField('headline')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                <input value={form.headline} onChange={updateField('headline')} className="mt-1.5 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
               </label>
               <label className="block">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">City</span>
-                <input value={form.city} onChange={updateField('city')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                <input value={form.city} onChange={updateField('city')} className="mt-1.5 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
               </label>
               <label className="block">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Language</span>
-                <input value={form.language} onChange={updateField('language')} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                <input value={form.language} onChange={updateField('language')} className="mt-1.5 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
               </label>
             </div>
 
             <label className="block">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Bio</span>
-              <textarea value={form.bio} onChange={updateField('bio')} rows={5} className="mt-2 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-3 text-sm text-[var(--text-primary)] resize-none focus:outline-none focus:border-[var(--accent-primary)]" />
+              <textarea value={form.bio} onChange={updateField('bio')} rows={3} className="mt-1.5 w-full rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] resize-none focus:outline-none focus:border-[var(--accent-primary)]" />
             </label>
 
             <label className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-3">
@@ -708,7 +710,8 @@ function EditProfileModal({ profile, photoUrl, bannerUrl, onClose, onSave }) {
           </div>
         </div>
 
-        <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+        {/* Footer — sticky, always visible */}
+        <div className="shrink-0 flex flex-col-reverse gap-2.5 border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-3 sm:flex-row sm:justify-end sm:px-6">
           <button type="button" onClick={onClose} className="btn-ghost w-full px-5 sm:w-auto" disabled={saving}>Cancel</button>
           <button type="submit" className="btn-primary w-full px-5 disabled:opacity-60 sm:w-auto" disabled={saving}>
             {saving ? (
