@@ -94,31 +94,50 @@ export default function Auth() {
   }, []);
 
   const triggerGoogleAuth = useCallback(() => {
-    if (googleAuthInFlightRef.current) return;
-    googleAuthInFlightRef.current = true;
+    console.log('[GoogleAuth] triggerGoogleAuth called. inFlight:', googleAuthInFlightRef.current);
 
-    clearAll();
-    setGoogleLoading(true);
+    if (googleAuthInFlightRef.current) {
+      console.log('[GoogleAuth] Already in flight — ignoring duplicate click.');
+      return;
+    }
 
     const host = googleButtonHostRef.current;
     const target = host?.querySelector('button, [role="button"]');
 
+    console.log('[GoogleAuth] Hidden GoogleLogin host:', host);
+    console.log('[GoogleAuth] Hidden GoogleLogin target button:', target);
+
     if (!target) {
-      clearGoogleAuthState();
+      console.warn('[GoogleAuth] Could not find hidden GoogleLogin button. Google SDK may not have loaded.');
       toast.error('Google sign in is not ready yet. Please try again.', { id: 'google-unavailable' });
       return;
     }
 
+    // ─── CRITICAL: click() MUST fire here, synchronously, while we are still
+    // inside the original user-gesture frame.  Any state update (setGoogleLoading)
+    // before this causes a React re-render which severs the gesture chain and
+    // causes Chrome/Safari on production to treat the subsequent synthetic click
+    // as non-user-initiated → popup is blocked.
+    console.log('[GoogleAuth] Clicking hidden Google button synchronously (inside gesture frame)…');
+    googleAuthInFlightRef.current = true;
+    target.click();
+    console.log('[GoogleAuth] Hidden button clicked. Now setting loading state.');
+
+    clearAll();
+    setGoogleLoading(true);
+
     googleAuthTimeoutRef.current = window.setTimeout(() => {
+      console.warn('[GoogleAuth] Timeout fired — Google popup never responded within 60 s.');
       clearGoogleAuthState();
       toast.error('Google sign in timed out. Please try again.', { id: 'google-timeout' });
     }, 60000);
-
-    target.click();
   }, [clearAll, clearGoogleAuthState]);
 
   const handleGoogleSuccess = async ({ credential }) => {
+    console.log('[GoogleAuth] onSuccess callback fired. credential present:', !!credential);
+
     if (!credential) {
+      console.error('[GoogleAuth] onSuccess fired but credential is empty/null.');
       clearGoogleAuthState();
       toast.error('Google sign in failed. Please try again.', { id: 'google-error' });
       return;
@@ -131,17 +150,21 @@ export default function Auth() {
 
     clearAll();
     try {
+      console.log('[GoogleAuth] Calling backend googleLogin API…');
       const response = await googleLogin(credential);
       const tokens = response.data.data;
       let profileData = null;
 
+      console.log('[GoogleAuth] Backend responded with tokens. Saving to localStorage…');
       localStorage.setItem('access_token', tokens.access);
       localStorage.setItem('refresh_token', tokens.refresh);
 
       try {
         const profileRes = await getProfile();
         profileData = profileRes.data.data;
-      } catch {
+        console.log('[GoogleAuth] Profile loaded:', profileData?.email);
+      } catch (profileErr) {
+        console.warn('[GoogleAuth] Could not load profile after Google login:', profileErr);
         profileData = { email: '', name: 'User' };
       }
 
@@ -149,6 +172,7 @@ export default function Auth() {
       toast.success('Signed in with Google successfully!', { id: 'google-success' });
       navigate(getLandingPath(profileData), { replace: true });
     } catch (err) {
+      console.error('[GoogleAuth] Backend error during googleLogin:', err?.response?.status, err?.message);
       if (!err.response) {
         toast.error('Network error. Please try again.', { id: 'google-network' });
       } else {
@@ -165,6 +189,7 @@ export default function Auth() {
   };
 
   const handleGoogleError = () => {
+    console.error('[GoogleAuth] onError callback fired — Google SDK reported a failure (popup closed, blocked, or misconfigured OAuth client).');
     clearGoogleAuthState();
     toast.error('Google sign in could not be completed. Please try again.', { id: 'google-error' });
   };
@@ -637,7 +662,6 @@ export default function Auth() {
                               className: 'w-full flex justify-center overflow-hidden px-2 sm:px-0',
                               style: { maxWidth: '320px' },
                             }}
-                            disabled={googleLoading}
                           />
                         </div>
 
