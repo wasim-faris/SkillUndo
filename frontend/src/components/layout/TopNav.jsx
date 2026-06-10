@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiLightningBolt, HiChat, HiLogout, HiBell, HiCheck, HiX, HiCheckCircle } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
+import LogoutModal from '../ui/LogoutModal';
 import { getChats } from '../../api/chat';
 import { getNotifications, getUnreadNotificationCount, markNotificationAsRead } from '../../api/notifications';
 import toast from 'react-hot-toast';
@@ -13,6 +14,7 @@ export default function TopNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Notification states
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
@@ -125,17 +127,14 @@ export default function TopNav() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Logged out successfully.');
-      navigate('/login', { replace: true });
-    } catch (err) {
-      toast.error('Logout failed. Please try again.');
-    }
+  const handleLogoutConfirm = async () => {
+    await logout();
+    toast.success('Logged out successfully.');
+    navigate('/login', { replace: true });
   };
 
   return (
+    <>
     <nav className="fixed top-0 left-0 right-0 z-[100] flex h-[72px] items-center justify-center px-3 sm:px-4 lg:px-6"
          style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-default)' }}>
       <div className="flex w-full max-w-[1360px] items-center justify-between gap-3 min-w-0">
@@ -296,7 +295,7 @@ export default function TopNav() {
           </Link>
 
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutModal(true)}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all duration-200 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 active:scale-95 sm:h-10 sm:w-10"
             title="Logout"
           >
@@ -305,5 +304,13 @@ export default function TopNav() {
         </div>
       </div>
     </nav>
+
+    {showLogoutModal && (
+      <LogoutModal
+        onCancel={() => setShowLogoutModal(false)}
+        onConfirm={handleLogoutConfirm}
+      />
+    )}
+    </>
   );
 }

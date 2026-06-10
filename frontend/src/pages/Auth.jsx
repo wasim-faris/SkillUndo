@@ -454,6 +454,7 @@ export default function Auth() {
                     aria-describedby={fe('email') ? 'auth-email-error' : undefined}
                     errorId="auth-email-error"
                     autoComplete="username"
+                    disabled={loading}
                   />
 
                   <div className="flex flex-col gap-1.5 w-full">
@@ -488,6 +489,7 @@ export default function Auth() {
                       aria-describedby={fe('password') ? 'auth-password-error' : undefined}
                       errorId="auth-password-error"
                       autoComplete={isLogin ? 'current-password' : 'new-password'}
+                      disabled={loading}
                     />
                   </div>
 
@@ -588,8 +590,10 @@ export default function Auth() {
                   {/* Submit */}
                   <div className="pt-2">
                     <Button type="submit" fullWidth loading={loading} size="lg" disabled={loading}>
-                      {isLogin ? 'Sign In' : 'Get Started'}
-                      <HiArrowRight className="text-lg transition-transform duration-200 group-hover:translate-x-0.5" />
+                      {isLogin && loading ? 'Signing In...' : isLogin ? 'Sign In' : 'Get Started'}
+                      {!(isLogin && loading) && (
+                        <HiArrowRight className="text-lg transition-transform duration-200 group-hover:translate-x-0.5" />
+                      )}
                     </Button>
                   </div>
 
