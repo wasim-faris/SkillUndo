@@ -53,35 +53,16 @@ export default function Auth() {
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleButtonWidth, setGoogleButtonWidth] = useState(() => {
-    if (typeof window === 'undefined') return 320;
-    return Math.min(320, Math.max(240, window.innerWidth - 48));
-  });
-  const googleButtonHostRef = useRef(null);
   const googleAuthTimeoutRef = useRef(null);
-  const googleAuthInFlightRef = useRef(false);
   const [mode, setMode] = useState(
     location.pathname === '/register' ? 'register' : 'login'
   );
   const isLogin = mode === 'login';
   const googleEnabled = hasGoogleClientId;
 
-  useEffect(() => {
-    const updateGoogleButtonWidth = () => {
-      const nextWidth = Math.min(320, Math.max(240, window.innerWidth - 48));
-      setGoogleButtonWidth(nextWidth);
-    };
-
-    updateGoogleButtonWidth();
-    window.addEventListener('resize', updateGoogleButtonWidth);
-    return () => window.removeEventListener('resize', updateGoogleButtonWidth);
-  }, []);
-
+  // Clean up timeout on unmount
   useEffect(() => () => {
-    if (googleAuthTimeoutRef.current) {
-      window.clearTimeout(googleAuthTimeoutRef.current);
-    }
-    googleAuthInFlightRef.current = false;
+    if (googleAuthTimeoutRef.current) window.clearTimeout(googleAuthTimeoutRef.current);
   }, []);
 
   const clearGoogleAuthState = useCallback(() => {
@@ -89,49 +70,25 @@ export default function Auth() {
       window.clearTimeout(googleAuthTimeoutRef.current);
       googleAuthTimeoutRef.current = null;
     }
-    googleAuthInFlightRef.current = false;
     setGoogleLoading(false);
   }, []);
 
-  const triggerGoogleAuth = useCallback(() => {
-    console.log('[GoogleAuth] triggerGoogleAuth called. inFlight:', googleAuthInFlightRef.current);
-
-    if (googleAuthInFlightRef.current) {
-      console.log('[GoogleAuth] Already in flight — ignoring duplicate click.');
-      return;
-    }
-
-    const host = googleButtonHostRef.current;
-    const target = host?.querySelector('button, [role="button"]');
-
-    console.log('[GoogleAuth] Hidden GoogleLogin host:', host);
-    console.log('[GoogleAuth] Hidden GoogleLogin target button:', target);
-
-    if (!target) {
-      console.warn('[GoogleAuth] Could not find hidden GoogleLogin button. Google SDK may not have loaded.');
-      toast.error('Google sign in is not ready yet. Please try again.', { id: 'google-unavailable' });
-      return;
-    }
-
-    // ─── CRITICAL: click() MUST fire here, synchronously, while we are still
-    // inside the original user-gesture frame.  Any state update (setGoogleLoading)
-    // before this causes a React re-render which severs the gesture chain and
-    // causes Chrome/Safari on production to treat the subsequent synthetic click
-    // as non-user-initiated → popup is blocked.
-    console.log('[GoogleAuth] Clicking hidden Google button synchronously (inside gesture frame)…');
-    googleAuthInFlightRef.current = true;
-    target.click();
-    console.log('[GoogleAuth] Hidden button clicked. Now setting loading state.');
-
+  // Called from the wrapper div's onClick — fires from the real user gesture
+  // before Google opens the popup, so the browser trusts the subsequent popup.
+  const handleGoogleWrapperClick = useCallback(() => {
+    if (googleLoading) return;
+    console.log('[GoogleAuth] Wrapper clicked — genuine user gesture. Setting loading state.');
     clearAll();
     setGoogleLoading(true);
-
+    // Safety timeout: if Google never calls onSuccess/onError, reset after 60 s
     googleAuthTimeoutRef.current = window.setTimeout(() => {
-      console.warn('[GoogleAuth] Timeout fired — Google popup never responded within 60 s.');
+      console.warn('[GoogleAuth] Timeout — Google popup never responded in 60 s.');
       clearGoogleAuthState();
       toast.error('Google sign in timed out. Please try again.', { id: 'google-timeout' });
     }, 60000);
-  }, [clearAll, clearGoogleAuthState]);
+  }, [googleLoading, clearAll, clearGoogleAuthState]);
+
+
 
   const handleGoogleSuccess = async ({ credential }) => {
     console.log('[GoogleAuth] onSuccess callback fired. credential present:', !!credential);
@@ -644,40 +601,55 @@ export default function Auth() {
                         <span className="h-px flex-1 bg-[var(--border-default)]" />
                       </div>
 
-                      <div className="relative w-full" ref={googleButtonHostRef}>
+                      {/*
+                        OVERLAY PATTERN — the only reliable way to get a real Google
+                        ID token in production without modifying the backend:
+
+                        1. Wrapper div onClick fires from the GENUINE user gesture
+                           (sets loading state / starts timeout).
+                        2. GoogleLogin sits in an absolutely-positioned layer, opacity
+                           near-zero but still interactive, so it receives the REAL
+                           pointer event that the browser trusts for popup opening.
+                        3. Our custom visual button is pointer-events:none — purely
+                           decorative; the user sees it but never clicks it directly.
+
+                        Why the old hidden-button `.click()` approach failed:
+                        Google's GIS SDK validates that its button was activated by a
+                        trusted (non-synthetic) pointer event and silently ignores
+                        programmatic `.click()` calls on production domains. Neither
+                        onSuccess nor onError fires — hence the 60 s timeout.
+                      */}
+                      <div
+                        className="relative w-full cursor-pointer"
+                        onClick={handleGoogleWrapperClick}
+                        role="presentation"
+                      >
+                        {/* Layer 1 — Google's real button (invisible but clickable) */}
                         <div
                           aria-hidden="true"
-                          className="pointer-events-none absolute inset-0 overflow-hidden opacity-0"
+                          className="absolute inset-0 z-10 overflow-hidden flex items-center justify-center"
+                          style={{ opacity: 0.001 }}
                         >
                           <GoogleLogin
                             onSuccess={handleGoogleSuccess}
                             onError={handleGoogleError}
                             useOneTap={false}
-                            width={googleButtonWidth}
+                            width={400}
                             text="continue_with"
                             shape="rectangular"
                             theme="outline"
                             logo_alignment="center"
-                            containerProps={{
-                              className: 'w-full flex justify-center overflow-hidden px-2 sm:px-0',
-                              style: { maxWidth: '320px' },
-                            }}
                           />
                         </div>
 
-                        <motion.button
-                          type="button"
-                          onClick={triggerGoogleAuth}
-                          disabled={googleLoading}
-                          whileHover={googleLoading ? {} : { y: -1, scale: 1.01 }}
-                          whileTap={googleLoading ? {} : { scale: 0.99 }}
+                        {/* Layer 2 — Our custom visual (pointer-events:none) */}
+                        <div
+                          aria-label={googleLoading ? 'Signing in with Google…' : 'Continue with Google'}
                           className="
+                            pointer-events-none relative z-0
                             inline-flex w-full items-center justify-center gap-3 rounded-xl border
                             border-[rgba(17,24,39,0.1)] bg-white px-6 py-3.5 text-sm font-semibold text-slate-900
                             shadow-[0_10px_28px_rgba(15,23,42,0.16)] transition-all duration-200
-                            hover:bg-slate-50 hover:shadow-[0_16px_34px_rgba(15,23,42,0.2)]
-                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(124,111,247,0.2)]
-                            focus-visible:ring-offset-0 disabled:cursor-wait disabled:opacity-100
                           "
                         >
                           <GoogleLogoIcon loading={googleLoading} />
@@ -686,7 +658,7 @@ export default function Auth() {
                               {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
                             </span>
                           </span>
-                        </motion.button>
+                        </div>
                       </div>
                     </div>
                   )}
