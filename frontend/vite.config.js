@@ -70,6 +70,12 @@ export default defineConfig(({ mode }) => {
           secure: false,
         }
       }
+    },
+    build: {
+      minify: 'esbuild',
+    },
+    esbuild: {
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
     }
   }
 })

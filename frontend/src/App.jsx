@@ -6,21 +6,24 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import PublicRoute from './routes/PublicRoute';
 import AdminRoute from './routes/AdminRoute';
 
-import Auth from './pages/Auth';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Profile from './pages/Profile';
-import Skills from './pages/Skills';
-import Matches from './pages/Matches';
-import AdminLayout from './components/admin/AdminLayout';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminReports from './pages/admin/AdminReports';
-import AdminSessions from './pages/admin/AdminSessions';
-import AdminUsers from './pages/admin/AdminUsers';
+import React, { Suspense } from 'react';
+import PageSkeleton from './components/ui/PageSkeleton';
 
-import OTPVerification from './pages/OTPVerification';
-import Sessions from './pages/Sessions';
-import Messages from './pages/Messages';
+const Auth = React.lazy(() => import('./pages/Auth'));
+const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const Skills = React.lazy(() => import('./pages/Skills'));
+const Matches = React.lazy(() => import('./pages/Matches'));
+const AdminLayout = React.lazy(() => import('./components/admin/AdminLayout'));
+const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminReports = React.lazy(() => import('./pages/admin/AdminReports'));
+const AdminSessions = React.lazy(() => import('./pages/admin/AdminSessions'));
+const AdminUsers = React.lazy(() => import('./pages/admin/AdminUsers'));
+
+const OTPVerification = React.lazy(() => import('./pages/OTPVerification'));
+const Sessions = React.lazy(() => import('./pages/Sessions'));
+const Messages = React.lazy(() => import('./pages/Messages'));
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -35,45 +38,47 @@ function AnimatedRoutes() {
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="page-transition-wrapper"
       >
-        <Routes location={location}>
-          {/* Root Redirect */}
-          <Route path="/" element={<Navigate to="/matches" replace />} />
+        <Suspense fallback={<PageSkeleton />}>
+          <Routes location={location}>
+            {/* Root Redirect */}
+            <Route path="/" element={<Navigate to="/matches" replace />} />
 
-          {/* Authentication Routes (Public) */}
-          <Route element={<PublicRoute />}>
-            <Route path="/login" element={<Auth />} />
-            <Route path="/register" element={<Auth />} />
-            <Route path="/verify-otp" element={<OTPVerification />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password/:token" element={<ResetPassword />} />
-            <Route path="/reset-password-confirm/:token" element={<ResetPassword />} />
-            <Route path="/api/v1/auth/reset-password-confirm/:token" element={<ResetPassword />} />
-          </Route>
-
-          {/* Protected Application Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/matches" element={<Matches />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/:user_id" element={<Profile />} />
-            <Route path="/sessions" element={<Sessions />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/skills" element={<Skills />} />
-
-            <Route element={<AdminRoute />}>
-              <Route path="/dashboard" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="reports" element={<AdminReports />} />
-                <Route path="sessions" element={<AdminSessions />} />
-                <Route path="users" element={<AdminUsers />} />
-              </Route>
-              <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
+            {/* Authentication Routes (Public) */}
+            <Route element={<PublicRoute />}>
+              <Route path="/login" element={<Auth />} />
+              <Route path="/register" element={<Auth />} />
+              <Route path="/verify-otp" element={<OTPVerification />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
+              <Route path="/reset-password-confirm/:token" element={<ResetPassword />} />
+              <Route path="/api/v1/auth/reset-password-confirm/:token" element={<ResetPassword />} />
             </Route>
-          </Route>
 
-          {/* Catch-all Redirect */}
-          <Route path="*" element={<Navigate to="/matches" replace />} />
-        </Routes>
+            {/* Protected Application Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/matches" element={<Matches />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/:user_id" element={<Profile />} />
+              <Route path="/sessions" element={<Sessions />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/skills" element={<Skills />} />
+
+              <Route element={<AdminRoute />}>
+                <Route path="/dashboard" element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="reports" element={<AdminReports />} />
+                  <Route path="sessions" element={<AdminSessions />} />
+                  <Route path="users" element={<AdminUsers />} />
+                </Route>
+                <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
+              </Route>
+            </Route>
+
+            {/* Catch-all Redirect */}
+            <Route path="*" element={<Navigate to="/matches" replace />} />
+          </Routes>
+        </Suspense>
       </motion.div>
     </AnimatePresence>
   );

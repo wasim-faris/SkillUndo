@@ -40,4 +40,20 @@ api.interceptors.response.use(
   }
 )
 
+const cache = new Map()
+
+api.getWithCache = async (url, config = {}) => {
+  const { cacheTime = 30000, force = false, ...axiosConfig } = config
+  const key = `${url}?${JSON.stringify(axiosConfig.params || {})}`
+  
+  const cached = cache.get(key)
+  if (!force && cached && Date.now() - cached.timestamp < cacheTime) {
+    return Promise.resolve(cached.response)
+  }
+
+  const response = await api.get(url, axiosConfig)
+  cache.set(key, { timestamp: Date.now(), response })
+  return response
+}
+
 export default api

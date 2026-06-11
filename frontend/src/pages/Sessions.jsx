@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -425,7 +425,7 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
   );
 }
 
-function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDetail, reviewed }) {
+const SessionCard = memo(({ session, currentUserId, pendingAction, onAction, onOpenDetail, reviewed }) => {
   const navigate = useNavigate();
   // Track a local completing state to prevent double-fire on the complete button
   const [completing, setCompleting] = useState(false);
@@ -636,7 +636,7 @@ function SessionCard({ session, currentUserId, pendingAction, onAction, onOpenDe
       </div>
     </motion.div>
   );
-}
+});
 
 export default function Sessions() {
   const { user } = useAuth();

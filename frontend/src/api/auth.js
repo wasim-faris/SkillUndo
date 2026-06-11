@@ -5,8 +5,8 @@ export const login = (data) => api.post('/api/v1/auth/login/', data);
 export const logout = (refresh) => api.post('/api/v1/auth/logout/', { refresh });
 
 // Profile
-export const getProfile = () => api.get('/api/v1/auth/me/');
-export const getPublicProfile = (userId) => api.get(`/api/v1/auth/profile/${userId}/`);
+export const getProfile = () => api.getWithCache('/api/v1/auth/me/', { cacheTime: 10000 });
+export const getPublicProfile = (userId) => api.getWithCache(`/api/v1/auth/profile/${userId}/`, { cacheTime: 30000 });
 export const updateProfile = (data) => api.patch('/api/v1/auth/me/update/', data);
 
 export const forgotPassword = (email) => api.post('/api/v1/auth/password-reset/', { email });
