@@ -17,6 +17,22 @@ import AuthShowcase from '../components/ui/AuthShowcase';
 /* ─── email regex (RFC-5322 lite) ─────────────────────────────── */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const validators = {
+  name: (v, isLogin) => (!isLogin && !v.trim() ? 'Full name is required.' : ''),
+  email: (v) => {
+    if (!v.trim()) return 'Email address is required.';
+    if (!EMAIL_RE.test(v)) return 'Please enter a valid email address.';
+    return '';
+  },
+  password: (v) => {
+    if (!v) return 'Password is required.';
+    if (v.length < 8) return 'Password must be at least 8 characters.';
+    return '';
+  },
+  confirmPassword: (v, isLogin, formPass) =>
+    !isLogin && v !== formPass ? 'Passwords do not match.' : '',
+};
+
 function GoogleLogoIcon({ loading = false }) {
   if (loading) {
     return (
@@ -48,7 +64,7 @@ export default function Auth() {
   const {
     fieldError, generalError,
     setApiErrors, setFieldError,
-    clearAll, setGeneralError,
+    clearAll,
   } = useFormErrors();
 
   const [loading, setLoading] = useState(false);
@@ -151,79 +167,87 @@ export default function Auth() {
     toast.error('Google sign in could not be completed. Please try again.', { id: 'google-error' });
   };
 
-  const [form, setForm] = useState({
-    name: '', email: '', password: '', confirmPassword: '',
-    city: '', language: '', bio: '', photo: null,
+  const [formState, setFormState] = useState({
+    values: {
+      name: '', email: '', password: '', confirmPassword: '',
+      city: '', language: '', bio: '', photo: null,
+    },
+    touched: {},
+    clientErrors: {}
   });
-
-  /* touched tracks which fields the user has interacted with */
-  const [touched, setTouched] = useState({});
-  const [clientErrors, setClientErrors] = useState({});
+  const { values: form, clientErrors } = formState;
   const [showOptional, setShowOptional] = useState(false);
+  const debounceRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   /* refs for auto-focus on server-side field errors */
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
   const nameRef = useRef(null);
 
-  /* reset everything on mode switch */
-  useEffect(() => {
-    setClientErrors({});
-    setTouched({});
-    clearAll();
-  }, [mode]);                        // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── Real-time per-field validators ─────────────────────────── */
-  const validators = {
-    name: (v) => (!isLogin && !v.trim() ? 'Full name is required.' : ''),
-    email: (v) => {
-      if (!v.trim()) return 'Email address is required.';
-      if (!EMAIL_RE.test(v)) return 'Please enter a valid email address.';
-      return '';
-    },
-    password: (v) => {
-      if (!v) return 'Password is required.';
-      if (v.length < 8) return 'Password must be at least 8 characters.';
-      return '';
-    },
-    confirmPassword: (v) =>
-      !isLogin && v !== form.password ? 'Passwords do not match.' : '',
-  };
 
-  /* run a single field validator and push result into clientErrors */
-  const validateField = useCallback((field, value) => {
+  
+
+  const validateField = useCallback((field, value, currentState) => {
     const fn = validators[field];
-    const msg = fn ? fn(value) : '';
-    setClientErrors((prev) => {
-      if (!msg) {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      }
-      return { ...prev, [field]: msg };
-    });
-    return msg;
-  }, [form.password, isLogin]);  // eslint-disable-line react-hooks/exhaustive-deps
+    return fn ? fn(value, isLogin, currentState.values.password) : '';
+  }, [isLogin]);
 
   /* ── Handlers ────────────────────────────────────────────────── */
-  const handleChange = (field) => (e) => {
+  const handleChange = useCallback((field) => (e) => {
     const value = e.target.value;
-    setForm((prev) => ({ ...prev, [field]: value }));
-
-    /* clear server-side error for this field immediately */
     clearAll();
 
-    /* only show inline error if the field was already touched */
-    if (touched[field]) validateField(field, value);
-  };
+    setFormState(prev => ({
+      ...prev,
+      values: { ...prev.values, [field]: value }
+    }));
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setFormState(prev => {
+        if (!prev.touched[field]) return prev;
+        const msg = validateField(field, prev.values[field], prev);
+        if (prev.clientErrors[field] === msg) return prev;
+        
+        const nextErrors = { ...prev.clientErrors };
+        if (msg) nextErrors[field] = msg;
+        else delete nextErrors[field];
+        
+        return { ...prev, clientErrors: nextErrors };
+      });
+    }, 300);
+  }, [clearAll, validateField]);
 
   const handleBlur = (field) => () => {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-    validateField(field, form[field] ?? '');
+    setFormState(prev => {
+      const msg = validateField(field, prev.values[field], prev);
+      const nextErrors = { ...prev.clientErrors };
+      if (msg) nextErrors[field] = msg;
+      else delete nextErrors[field];
+      
+      return {
+        ...prev,
+        touched: { ...prev.touched, [field]: true },
+        clientErrors: nextErrors
+      };
+    });
   };
 
   const handleFileChange = (e) => {
-    if (e.target.files?.[0]) setForm((prev) => ({ ...prev, photo: e.target.files[0] }));
+    if (e.target.files?.[0]) {
+      const file = e.target.files[0];
+      setFormState(prev => ({
+        ...prev,
+        values: { ...prev.values, photo: file }
+      }));
+    }
   };
 
   /* ── Full-form validate on submit ────────────────────────────── */
@@ -233,14 +257,18 @@ export default function Auth() {
       : ['name', 'email', 'password', 'confirmPassword'];
 
     const errs = {};
+    const nextTouched = {};
     fields.forEach((f) => {
-      const msg = validators[f]?.(form[f] ?? '');
+      const msg = validators[f]?.(form[f] ?? '', isLogin, form.password);
       if (msg) errs[f] = msg;
+      nextTouched[f] = true;
     });
 
-    /* mark all required fields as touched */
-    setTouched(fields.reduce((acc, f) => ({ ...acc, [f]: true }), {}));
-    setClientErrors(errs);
+    setFormState(prev => ({
+      ...prev,
+      touched: { ...prev.touched, ...nextTouched },
+      clientErrors: errs
+    }));
     return errs;
   };
 
@@ -325,7 +353,7 @@ export default function Auth() {
       if (result?.type === 'credentials') {
         setFieldError('email', 'Invalid email or password.');
         setFieldError('password', 'Invalid email or password.');
-        setTouched((prev) => ({ ...prev, email: true, password: true }));
+        setFormState(prev => ({ ...prev, touched: { ...prev.touched, email: true, password: true } }));
         setTimeout(() => emailRef.current?.focus(), 60);
         toast.error('Invalid email or password.', { id: 'auth-error' });
       } else if (result?.fieldErrors) {
@@ -395,7 +423,12 @@ export default function Auth() {
                     <button
                       key={t}
                       type="button"
-                      onClick={() => { setMode(t); setShowOptional(false); }}
+                      onClick={() => {
+                        setMode(t);
+                        setShowOptional(false);
+                        setFormState(prev => ({ ...prev, touched: {}, clientErrors: {} }));
+                        clearAll();
+                      }}
                       className={`auth-tab-btn ${mode === t ? 'active' : ''}`}
                     >
                       {t}
