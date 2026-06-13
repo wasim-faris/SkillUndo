@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiLightningBolt, HiChat, HiLogout, HiBell, HiCheck, HiX, HiCheckCircle } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +11,6 @@ import toast from 'react-hot-toast';
 
 export default function TopNav() {
   const { user, logout } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -90,7 +89,7 @@ export default function TopNav() {
         try {
           const res = await getNotifications();
           setNotifications(res?.data?.data ?? res?.data ?? []);
-        } catch (err) {
+        } catch {
           toast.error('Failed to load notifications.');
         } finally {
           setLoadingNotifs(false);
@@ -116,7 +115,7 @@ export default function TopNav() {
       );
       setUnreadNotifCount(prev => Math.max(0, prev - 1));
       
-    } catch (err) {
+    } catch {
       toast.error('Failed to mark as read.');
     } finally {
       setMarkingRead(prev => {
@@ -132,6 +131,8 @@ export default function TopNav() {
     toast.success('Logged out successfully.');
     navigate('/login', { replace: true });
   };
+
+  const isGuest = !user?.id;
 
   return (
     <>
@@ -160,18 +161,19 @@ export default function TopNav() {
         {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
           
-          <Link to="/messages" className="relative group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all group-hover:border-[var(--accent-primary)] group-hover:text-[var(--accent-primary)] sm:h-10 sm:w-10">
-              <HiChat size={18} className="sm:w-5 sm:h-5" />
-            </div>
-            {/* Unread badge example */}
-            {unreadCount > 0 && (
-              <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--accent-secondary)] rounded-full border-2 border-[var(--bg-card)]"></span>
-            )}
-          </Link>
+          {!isGuest ? (
+            <Link to="/messages" className="relative group">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all group-hover:border-[var(--accent-primary)] group-hover:text-[var(--accent-primary)] sm:h-10 sm:w-10">
+                <HiChat size={18} className="sm:w-5 sm:h-5" />
+              </div>
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 w-3 h-3 bg-[var(--accent-secondary)] rounded-full border-2 border-[var(--bg-card)]"></span>
+              )}
+            </Link>
+          ) : null}
 
           {/* Notifications */}
-          <div className="relative group" ref={notifRef}>
+          {!isGuest ? <div className="relative group" ref={notifRef}>
             <button 
               onClick={() => setIsNotifOpen(!isNotifOpen)}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] focus:outline-none sm:h-10 sm:w-10"
@@ -281,26 +283,35 @@ export default function TopNav() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-          <div className="mx-1 h-6 w-px bg-[var(--border-default)] sm:mx-2"></div>
+          </div> : null}
+          {!isGuest ? <div className="mx-1 h-6 w-px bg-[var(--border-default)] sm:mx-2"></div> : null}
 
-          <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Avatar
-              firstName={user?.name?.split(' ')[0] || 'U'}
-              lastName={user?.name?.split(' ')[1] || 'S'}
-              src={user?.photo}
-              size="sm"
-              className="!h-9 !w-9 !rounded-full border-2 border-[var(--accent-primary)] sm:!h-10 sm:!w-10"
-            />
-          </Link>
+          {isGuest ? (
+            <div className="flex items-center gap-2">
+              <Link to="/login" className="btn-ghost px-3 py-2 text-xs sm:px-4 sm:text-sm">Login</Link>
+              <Link to="/register" className="btn-primary px-3 py-2 text-xs sm:px-4 sm:text-sm">Sign Up</Link>
+            </div>
+          ) : (
+            <>
+              <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Avatar
+                  firstName={user?.name?.split(' ')[0] || 'U'}
+                  lastName={user?.name?.split(' ')[1] || 'S'}
+                  src={user?.photo}
+                  size="sm"
+                  className="!h-9 !w-9 !rounded-full border-2 border-[var(--accent-primary)] sm:!h-10 sm:!w-10"
+                />
+              </Link>
 
-          <button
-            onClick={() => setShowLogoutModal(true)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all duration-200 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 active:scale-95 sm:h-10 sm:w-10"
-            title="Logout"
-          >
-            <HiLogout size={18} className="sm:w-5 sm:h-5" />
-          </button>
+              <button
+                onClick={() => setShowLogoutModal(true)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-all duration-200 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 active:scale-95 sm:h-10 sm:w-10"
+                title="Logout"
+              >
+                <HiLogout size={18} className="sm:w-5 sm:h-5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </nav>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { HiSearch, HiOutlinePaperAirplane, HiDotsVertical, HiChat, HiArrowLeft } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
@@ -7,6 +7,20 @@ import { getChats, getConversation, sendMessage } from '../api/chat';
 import { getPublicProfile } from '../api/auth';
 import toast from 'react-hot-toast';
 import { useDebounce } from '../hooks/useDebounce';
+
+let contactsCache = null;
+let contactsCacheTime = 0;
+let contactsPromise = null;
+let selectedContactCache = null;
+const messagesCache = new Map();
+const messagesPromiseCache = new Map();
+const publicProfileCache = new Map();
+const publicProfilePromiseCache = new Map();
+const CONTACTS_CACHE_TIME = 2 * 60 * 1000;
+const MESSAGE_REFRESH_TIME = 15 * 1000;
+const MESSAGE_POLL_INTERVAL = 5000;
+
+const getMessageId = (message) => message?.id ?? `${message?.sender}-${message?.created_at}-${message?.content}`;
 
 const ConversationItem = memo(({ contact, isActive, onClick }) => {
   return (
@@ -50,175 +64,286 @@ const ConversationItem = memo(({ contact, isActive, onClick }) => {
   );
 });
 
+const ConversationListSkeleton = memo(function ConversationListSkeleton() {
+  return (
+    <div className="p-4 space-y-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex gap-3 animate-pulse">
+          <div className="w-12 h-12 bg-[var(--bg-secondary)] rounded-full shrink-0" />
+          <div className="flex-1 space-y-2 py-1">
+            <div className="h-4 bg-[var(--bg-secondary)] rounded w-1/2" />
+            <div className="h-3 bg-[var(--bg-secondary)] rounded w-3/4" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+});
+
+const ChatSkeleton = memo(function ChatSkeleton() {
+  return (
+    <div className="space-y-4 px-1 py-2">
+      {Array.from({ length: 7 }).map((_, index) => {
+        const isMe = index % 3 !== 0;
+        return (
+          <div key={index} className={`flex animate-pulse ${isMe ? 'justify-end' : 'justify-start'}`}>
+            <div className={`h-10 rounded-2xl bg-[var(--bg-secondary)] ${isMe ? 'w-[58%]' : 'w-[48%]'}`} />
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+const MessageBubble = memo(function MessageBubble({ msg, previousMsg, nextMsg, isLastMine, contactUserId }) {
+  const isMe = String(msg.sender) !== String(contactUserId);
+  const currentSenderId = msg.sender;
+  const isPrevSame = previousMsg && String(previousMsg.sender) === String(currentSenderId);
+  const isNextSame = nextMsg && String(nextMsg.sender) === String(currentSenderId);
+  const timeString = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const bubbleColor = isMe
+    ? 'bg-[var(--accent-primary)] text-white'
+    : 'bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-primary)]';
+
+  let corners = 'rounded-2xl ';
+  if (isMe) {
+    if (isPrevSame && isNextSame) corners = 'rounded-2xl rounded-r-sm ';
+    else if (isPrevSame) corners = 'rounded-2xl rounded-tr-sm ';
+    else if (isNextSame) corners = 'rounded-2xl rounded-br-sm ';
+  } else if (isPrevSame && isNextSame) corners = 'rounded-2xl rounded-l-sm ';
+  else if (isPrevSame) corners = 'rounded-2xl rounded-tl-sm ';
+  else if (isNextSame) corners = 'rounded-2xl rounded-bl-sm ';
+
+  const marginTop = isPrevSame ? 'mt-1' : 'mt-4 md:mt-5';
+
+  return (
+    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${marginTop}`}>
+      <div className="max-w-[85%] sm:max-w-[75%]">
+        <div className={`px-3.5 py-2 md:px-4 md:py-2.5 ${bubbleColor} ${corners}`}>
+          <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+        </div>
+        {!isNextSame && (
+          <div className={`flex items-center gap-1.5 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+            <p className="text-[10px] text-[var(--text-muted)]">{timeString}</p>
+            {isMe && isLastMine && (
+              <span className="text-[10px] font-semibold tracking-wide flex items-center">
+                {msg.is_read ? (
+                  <span className="text-[#3b82f6]">Seen</span>
+                ) : (
+                  <span className="text-[var(--text-muted)]">Sent</span>
+                )}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+function areMessagesEqual(previousMessages, nextMessages) {
+  if (previousMessages === nextMessages) return true;
+  if (!Array.isArray(previousMessages) || !Array.isArray(nextMessages)) return false;
+  if (previousMessages.length !== nextMessages.length) return false;
+  for (let i = 0; i < nextMessages.length; i += 1) {
+    const prev = previousMessages[i];
+    const next = nextMessages[i];
+    if (
+      getMessageId(prev) !== getMessageId(next) ||
+      prev?.content !== next?.content ||
+      prev?.is_read !== next?.is_read ||
+      prev?.created_at !== next?.created_at
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function enrichChatProfiles(chats) {
+  return Promise.all(
+    chats.map(async (chat) => {
+      if (publicProfileCache.has(chat.user_id)) {
+        return { ...chat, ...publicProfileCache.get(chat.user_id) };
+      }
+
+      try {
+        if (!publicProfilePromiseCache.has(chat.user_id)) {
+          publicProfilePromiseCache.set(chat.user_id, getPublicProfile(chat.user_id));
+        }
+        const profileRes = await publicProfilePromiseCache.get(chat.user_id);
+        const profile = profileRes?.data?.data ?? profileRes?.data ?? {};
+        const cachedProfile = {
+          user_name: profile.name || chat.user_name,
+          user_photo: profile.photo || null,
+        };
+        publicProfileCache.set(chat.user_id, cachedProfile);
+        return { ...chat, ...cachedProfile };
+      } catch {
+        publicProfilePromiseCache.delete(chat.user_id);
+        return chat;
+      }
+    })
+  );
+}
+
 export default function Messages() {
   const location = useLocation();
-  const [contacts, setContacts] = useState([]);
-  const [activeContact, setActiveContact] = useState(null);
+  const [contacts, setContacts] = useState(() => contactsCache || []);
+  const [activeContact, setActiveContact] = useState(() => selectedContactCache);
   const [showChatMobile, setShowChatMobile] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => selectedContactCache ? messagesCache.get(selectedContactCache.user_id)?.messages || [] : []);
   const [inputText, setInputText] = useState('');
 
   useEffect(() => {
     const openChatWith = location.state?.openChatWith;
     if (openChatWith && !activeContact) {
-      setTimeout(() => {
+      queueMicrotask(() => {
+        selectedContactCache = openChatWith;
         setActiveContact(openChatWith);
         setShowChatMobile(true);
         setContacts(prev => {
-          if (!prev.find(c => c.user_id === openChatWith.user_id)) {
-             return [{
-               ...openChatWith,
-               last_message: '',
-               last_message_at: new Date().toISOString(),
-               unread_count: 0
-             }, ...prev];
-          }
-          return prev;
+          if (prev.find(c => c.user_id === openChatWith.user_id)) return prev;
+          const next = [{
+            ...openChatWith,
+            last_message: '',
+            last_message_at: new Date().toISOString(),
+            unread_count: 0
+          }, ...prev];
+          contactsCache = next;
+          contactsCacheTime = Date.now();
+          return next;
         });
-      }, 0);
+      });
       // Clean up the state so it doesn't trigger again on reload
       window.history.replaceState({}, document.title);
     }
   }, [location.state, activeContact]);
   
-  const [loadingContacts, setLoadingContacts] = useState(true);
+  const [loadingContacts, setLoadingContacts] = useState(() => !contactsCache);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [search, setSearch] = useState('');
   
   const messagesContainerRef = useRef(null);
-  const profilesCache = useRef({});
+  const activeContactRef = useRef(null);
+  const activeConversationRequestRef = useRef(0);
+  const shouldStickToBottomRef = useRef(true);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback((behavior = 'auto') => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      });
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    activeContactRef.current = activeContact;
+    if (activeContact) selectedContactCache = activeContact;
+  }, [activeContact]);
 
   useEffect(() => {
     let active = true;
-    let pollInterval = null;
 
-    const fetchContacts = async (isInitial = false) => {
-      if (isInitial) {
-        setLoadingContacts(true);
+    const fetchContacts = async () => {
+      const hasFreshCache = contactsCache && Date.now() - contactsCacheTime < CONTACTS_CACHE_TIME;
+      if (contactsCache) {
+        setContacts(contactsCache);
+        setLoadingContacts(false);
+        if (hasFreshCache) return;
       }
+
+      setLoadingContacts(!contactsCache);
       
       try {
-        const res = await getChats();
+        if (!contactsPromise) {
+          contactsPromise = getChats().finally(() => {
+            contactsPromise = null;
+          });
+        }
+        const res = await contactsPromise;
         if (!active) return;
         const chats = res?.data?.data ?? res?.data ?? [];
-        
-        const enriched = await Promise.all(
-          chats.map(async (chat) => {
-            if (profilesCache.current[chat.user_id]) {
-              return {
-                ...chat,
-                ...profilesCache.current[chat.user_id]
-              };
-            }
-            try {
-              const profileRes = await getPublicProfile(chat.user_id);
-              const profile = profileRes?.data?.data ?? profileRes?.data ?? {};
-              const cachedProfile = {
-                user_name: profile.name || chat.user_name,
-                user_photo: profile.photo || null,
-              };
-              profilesCache.current[chat.user_id] = cachedProfile;
-              return {
-                ...chat,
-                ...cachedProfile
-              };
-            } catch {
-              return chat;
-            }
-          })
-        );
+        const enriched = await enrichChatProfiles(chats);
 
         if (!active) return;
 
-        // Sort contacts by last_message_at descending
         const sortedEnriched = enriched.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
-
-        setContacts(sortedEnriched.map(c => 
-          activeContact && c.user_id === activeContact.user_id
+        const currentActiveContact = activeContactRef.current;
+        const nextContacts = sortedEnriched.map(c => 
+          currentActiveContact && c.user_id === currentActiveContact.user_id
             ? { ...c, unread_count: 0 }
             : c
-        ));
-      } catch (err) {
+        );
+        contactsCache = nextContacts;
+        contactsCacheTime = Date.now();
+        setContacts(nextContacts);
+      } catch {
         if (!active) return;
-        if (isInitial) toast.error('Failed to load conversations.');
-        console.error(err);
+        toast.error('Failed to load conversations.');
       } finally {
-        if (active && isInitial) setLoadingContacts(false);
+        if (active) setLoadingContacts(false);
       }
     };
 
-    fetchContacts(true);
-
-    pollInterval = setInterval(() => {
-      fetchContacts(false);
-    }, 3000);
+    fetchContacts();
 
     return () => {
       active = false;
-      if (pollInterval) clearInterval(pollInterval);
     };
-  }, [activeContact]);
+  }, []);
 
   useEffect(() => {
     if (!activeContact?.user_id) return;
     
     let active = true;
-    let pollInterval = null;
+    const requestId = activeConversationRequestRef.current + 1;
+    activeConversationRequestRef.current = requestId;
+    const cachedMessages = messagesCache.get(activeContact.user_id);
+
+    if (cachedMessages) {
+      queueMicrotask(() => {
+        setMessages(cachedMessages.messages);
+        setLoadingMessages(false);
+        requestAnimationFrame(() => scrollToBottom());
+      });
+    } else {
+      queueMicrotask(() => {
+        setMessages([]);
+        setLoadingMessages(true);
+      });
+    }
     
     const fetchMessages = async (isInitial = false) => {
-      if (isInitial) {
-        setLoadingMessages(true);
+      const latestCachedMessages = messagesCache.get(activeContact.user_id);
+      if (isInitial && latestCachedMessages && Date.now() - latestCachedMessages.timestamp < MESSAGE_REFRESH_TIME) {
+        setLoadingMessages(false);
+        return;
       }
-      
+
       try {
-        const res = await getConversation(activeContact.user_id);
-        if (!active) return;
+        if (!messagesPromiseCache.has(activeContact.user_id)) {
+          messagesPromiseCache.set(
+            activeContact.user_id,
+            getConversation(activeContact.user_id).finally(() => {
+              messagesPromiseCache.delete(activeContact.user_id);
+            })
+          );
+        }
+        const res = await messagesPromiseCache.get(activeContact.user_id);
+        if (!active || activeConversationRequestRef.current !== requestId) return;
         
         const msgs = res?.data?.data ?? res?.data ?? [];
+        messagesCache.set(activeContact.user_id, { timestamp: Date.now(), messages: msgs });
         
         setMessages(prev => {
-          // If this is the initial load, always set and scroll
-          if (isInitial || prev.length === 0) {
-            setTimeout(scrollToBottom, 100);
-            return msgs;
-          }
-          
-          // Check if any read status changed
-          let readStatusChanged = false;
-          if (prev.length === msgs.length) {
-            for (let i = 0; i < msgs.length; i++) {
-              if (prev[i].is_read !== msgs[i].is_read) {
-                readStatusChanged = true;
-                break;
-              }
-            }
-          }
-          
-          // Smart update: only update state if the array length changed 
-          // or the last message ID is different, or read status changed
-          const hasNewMessages = prev.length !== msgs.length || 
-            (msgs.length > 0 && prev[prev.length - 1].id !== msgs[msgs.length - 1].id) ||
-            readStatusChanged;
-            
-          if (hasNewMessages) {
-            // DO NOT auto-scroll here during polling. 
-            // It disrupts the user if they are reading older messages.
-            // React will naturally preserve the scroll position because of msg.id keys.
-            return msgs;
-          }
-          
-          return prev; // No change, bail out of state update
+          if (areMessagesEqual(prev, msgs)) return prev;
+          return msgs;
         });
         
-        // The backend automatically marks messages as read when fetched.
-        // Immediately clear the unread_count badge in the sidebar for this contact and update the last message preview if changed.
         if (msgs.length > 0) {
           const lastMsg = msgs[msgs.length - 1];
           setContacts(prevContacts => {
@@ -232,14 +357,22 @@ export default function Messages() {
                   } 
                 : c
             );
-            return updated.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+            const sorted = updated.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+            contactsCache = sorted;
+            contactsCacheTime = Date.now();
+            return sorted;
           });
         } else {
-          setContacts(prevContacts => prevContacts.map(c => 
-            c.user_id === activeContact.user_id && c.unread_count > 0 
-              ? { ...c, unread_count: 0 } 
-              : c
-          ));
+          setContacts(prevContacts => {
+            const nextContacts = prevContacts.map(c =>
+              c.user_id === activeContact.user_id && c.unread_count > 0
+                ? { ...c, unread_count: 0 }
+                : c
+            );
+            contactsCache = nextContacts;
+            contactsCacheTime = Date.now();
+            return nextContacts;
+          });
         }
       } catch (err) {
         if (!active) return;
@@ -250,32 +383,50 @@ export default function Messages() {
       }
     };
 
-    // 1. Clear messages for new contact
-    setTimeout(() => {
-      if (active) setMessages([]);
-    }, 0);
-    
-    // 2. Initial fetch with loading state
     fetchMessages(true);
-    
-    // 3. Start polling every 3 seconds without loading state
-    pollInterval = setInterval(() => {
+    const pollInterval = setInterval(() => {
       fetchMessages(false);
-    }, 3000);
+    }, MESSAGE_POLL_INTERVAL);
 
-    // 4. Cleanup on unmount or contact change
     return () => { 
       active = false; 
-      if (pollInterval) clearInterval(pollInterval);
+      clearInterval(pollInterval);
     };
-  }, [activeContact?.user_id]);
+  }, [activeContact?.user_id, scrollToBottom]);
 
   const handleSend = async () => {
     if (!inputText.trim() || !activeContact?.user_id || sendingMessage) return;
     
     const content = inputText.trim();
+    const now = new Date().toISOString();
+    const optimisticMessage = {
+      id: `optimistic-${activeContact.user_id}-${Date.now()}`,
+      sender: 'me',
+      content,
+      created_at: now,
+      is_read: false,
+      optimistic: true,
+    };
+
     setInputText('');
     setSendingMessage(true);
+    setMessages(prev => {
+      const nextMessages = [...prev, optimisticMessage];
+      messagesCache.set(activeContact.user_id, { timestamp: Date.now(), messages: nextMessages });
+      return nextMessages;
+    });
+    requestAnimationFrame(() => scrollToBottom('smooth'));
+    setContacts(prev => {
+      const updated = prev.map(c => (
+        c.user_id === activeContact.user_id
+          ? { ...c, last_message: content, last_message_at: now }
+          : c
+      ));
+      const sorted = updated.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+      contactsCache = sorted;
+      contactsCacheTime = Date.now();
+      return sorted;
+    });
     
     try {
       const res = await sendMessage({
@@ -286,10 +437,12 @@ export default function Messages() {
       const newMsg = res?.data?.data ?? res?.data;
       
       if (newMsg) {
-        setMessages(prev => [...prev, newMsg]);
-        setTimeout(scrollToBottom, 100);
-        
-        // Update contact last message locally
+        setMessages(prev => {
+          const nextMessages = prev.map((msg) => msg.id === optimisticMessage.id ? newMsg : msg);
+          messagesCache.set(activeContact.user_id, { timestamp: Date.now(), messages: nextMessages });
+          return nextMessages;
+        });
+
         setContacts(prev => {
           const updated = prev.map(c => {
             if (c.user_id === activeContact.user_id) {
@@ -302,10 +455,18 @@ export default function Messages() {
             return c;
           });
           // Sort so most recent is top
-          return updated.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+          const sorted = updated.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+          contactsCache = sorted;
+          contactsCacheTime = Date.now();
+          return sorted;
         });
       }
     } catch (err) {
+      setMessages(prev => {
+        const nextMessages = prev.filter((msg) => msg.id !== optimisticMessage.id);
+        messagesCache.set(activeContact.user_id, { timestamp: Date.now(), messages: nextMessages });
+        return nextMessages;
+      });
       toast.error('Failed to send message.');
       console.error(err);
       setInputText(content); // Restore input on failure
@@ -321,14 +482,47 @@ export default function Messages() {
 
   const debouncedSearch = useDebounce(search, 300);
 
-  const filteredContacts = contacts.filter(c => 
-    c.user_name?.toLowerCase().includes(debouncedSearch.toLowerCase())
-  );
+  const filteredContacts = useMemo(() => {
+    const query = debouncedSearch.trim().toLowerCase();
+    if (!query) return contacts;
+    return contacts.filter(c => c.user_name?.toLowerCase().includes(query));
+  }, [contacts, debouncedSearch]);
 
   const handleContactClick = useCallback((contact) => {
+    selectedContactCache = contact;
     setActiveContact(contact);
     setShowChatMobile(true);
   }, []);
+
+  const handleMessagesScroll = useCallback(() => {
+    const element = messagesContainerRef.current;
+    if (!element) return;
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 96;
+  }, []);
+
+  useEffect(() => {
+    if (!messages.length || !shouldStickToBottomRef.current) return;
+    requestAnimationFrame(() => scrollToBottom());
+  }, [messages.length, scrollToBottom]);
+
+  const renderedMessages = useMemo(() => {
+    if (!messages.length || !activeContact?.user_id) return null;
+    const lastMyMsgIdx = messages.reduce((lastIdx, msg, idx) =>
+      String(msg.sender) !== String(activeContact.user_id) ? idx : lastIdx, -1
+    );
+
+    return messages.map((msg, index) => (
+      <MessageBubble
+        key={getMessageId(msg)}
+        msg={msg}
+        previousMsg={index > 0 ? messages[index - 1] : null}
+        nextMsg={index < messages.length - 1 ? messages[index + 1] : null}
+        isLastMine={index === lastMyMsgIdx}
+        contactUserId={activeContact.user_id}
+      />
+    ));
+  }, [activeContact, messages]);
 
   return (
     <AppLayout>
@@ -356,17 +550,7 @@ export default function Messages() {
 
           <div className="flex-1 overflow-y-auto">
             {loadingContacts ? (
-              <div className="p-4 space-y-4">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="flex gap-3 animate-pulse">
-                    <div className="w-12 h-12 bg-[var(--bg-secondary)] rounded-full shrink-0" />
-                    <div className="flex-1 space-y-2 py-1">
-                      <div className="h-4 bg-[var(--bg-secondary)] rounded w-1/2" />
-                      <div className="h-3 bg-[var(--bg-secondary)] rounded w-3/4" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ConversationListSkeleton />
             ) : contacts.length === 0 ? (
               <div className="p-8 text-center text-[var(--text-muted)] text-sm flex flex-col items-center gap-3">
                  <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center">
@@ -427,11 +611,9 @@ export default function Messages() {
               </div>
 
               {/* Messages */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-3.5 md:px-6 md:py-6 md:space-y-4">
+              <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-3.5 md:px-6 md:py-6 md:space-y-4">
                 {loadingMessages ? (
-                  <div className="flex justify-center p-4">
-                    <span className="text-[var(--text-muted)] text-sm animate-pulse">Loading messages...</span>
-                  </div>
+                  <ChatSkeleton />
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-60">
                     <div className="w-16 h-16 bg-[var(--bg-secondary)] rounded-full flex items-center justify-center mb-2">
@@ -448,70 +630,7 @@ export default function Messages() {
                       </span>
                     </div>
 
-                    {(() => {
-                      // Find the index of the last message sent by the current user
-                      const lastMyMsgIdx = messages.reduce((lastIdx, msg, idx) => 
-                        String(msg.sender) !== String(activeContact.user_id) ? idx : lastIdx, -1
-                      );
-
-                      return messages.map((msg, index) => {
-                        // isMe: if the sender is NOT the contact, we sent it.
-                        const isMe = String(msg.sender) !== String(activeContact.user_id);
-                        const currentSenderId = msg.sender;
-
-                        const timeString = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                        // Group consecutive messages from the same sender
-                        const prevMsg = index > 0 ? messages[index - 1] : null;
-                        const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
-                        const isPrevSame = prevMsg && String(prevMsg.sender) === String(currentSenderId);
-                        const isNextSame = nextMsg && String(nextMsg.sender) === String(currentSenderId);
-
-                        // Bubble color
-                        const bubbleColor = isMe
-                          ? 'bg-[var(--accent-primary)] text-white'
-                          : 'bg-[var(--bg-secondary)] border border-[var(--border-default)] text-[var(--text-primary)]';
-
-                        // Rounded corners: flatten the corner closest to the next same-sender bubble
-                        let corners = 'rounded-2xl ';
-                        if (isMe) {
-                          if (isPrevSame && isNextSame) corners = 'rounded-2xl rounded-r-sm ';
-                          else if (isPrevSame)           corners = 'rounded-2xl rounded-tr-sm ';
-                          else if (isNextSame)           corners = 'rounded-2xl rounded-br-sm ';
-                        } else {
-                          if (isPrevSame && isNextSame) corners = 'rounded-2xl rounded-l-sm ';
-                          else if (isPrevSame)           corners = 'rounded-2xl rounded-tl-sm ';
-                          else if (isNextSame)           corners = 'rounded-2xl rounded-bl-sm ';
-                        }
-
-                        const marginTop = isPrevSame ? 'mt-1' : 'mt-4 md:mt-5';
-
-                        return (
-                          <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${marginTop}`}>
-                            <div className="max-w-[85%] sm:max-w-[75%]">
-                              <div className={`px-3.5 py-2 md:px-4 md:py-2.5 ${bubbleColor} ${corners}`}>
-                                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
-                              </div>
-                              {!isNextSame && (
-                                <div className={`flex items-center gap-1.5 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                  <p className={`text-[10px] text-[var(--text-muted)]`}>
-                                    {timeString}
-                                  </p>
-                                  {isMe && index === lastMyMsgIdx && (
-                                    <span className="text-[10px] font-semibold tracking-wide flex items-center">
-                                      {msg.is_read ? (
-                                        <span className="text-[#3b82f6]">Seen</span>
-                                      ) : (
-                                        <span className="text-[var(--text-muted)]">Sent</span>
-                                      )}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })})()}
+                    {renderedMessages}
 
                   </>
                 )}

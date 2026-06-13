@@ -35,7 +35,9 @@ export default function useAdminQuery(fetcher, options = {}) {
     mountedRef.current = true;
 
     if (immediate) {
-      void load().catch(() => {});
+      queueMicrotask(() => {
+        if (mountedRef.current) void load().catch(() => {});
+      });
     }
 
     return () => {
@@ -45,4 +47,3 @@ export default function useAdminQuery(fetcher, options = {}) {
 
   return { data, loading, error, reload: load, setData };
 }
-

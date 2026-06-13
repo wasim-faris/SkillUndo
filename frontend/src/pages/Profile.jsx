@@ -16,11 +16,14 @@ import { getMatches, getUserSkills, getPublicUserSkills } from '../api/skills';
 import { getUserActivity } from '../api/sessions';
 import api from '../api/axios';
 import MobileBackButton from '../components/ui/MobileBackButton';
+import LoginModal from '../components/ui/LoginModal';
 import { validateImageFile } from '../utils/image';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/u, '') || 'http://127.0.0.1:8000';
 const PROFILE_MEDIA_VERSION_KEY = 'skillswap_profile_media_version';
+const profileViewCache = new Map();
+const PROFILE_VIEW_CACHE_TIME = 5 * 60 * 1000;
 
 const unwrap = (response) => response?.data?.data ?? response?.data ?? null;
 const hasValue = (value) => value !== undefined && value !== null && value !== '';
@@ -822,8 +825,10 @@ const openEditProfile = () => editProfileState.set(true);
         photoUrl={photoUrl}
         bannerUrl={bannerUrl}
         onClose={() => editProfileState.set(false)}
-        onSave={(data) => {
-          onSave(data);
+        onSave={async (data) => {
+          await onSave(data);
+          editProfileState.set(false);
+          toast.success('Profile updated');
         }}
       />
       );
@@ -835,12 +840,14 @@ const openEditProfile = () => editProfileState.set(true);
       const {user_id: userId } = useParams();
       const {user, updateUser} = useAuth();
       const isOwnProfile = !userId || userId === user?.id;
+      const profileCacheKey = isOwnProfile ? `me:${user?.id || 'guest'}` : `public:${userId}`;
+      const cachedProfileView = profileViewCache.get(profileCacheKey);
   const [profile, setProfile] = useState(() => (isOwnProfile ? user : null));
       const [userSkills, setUserSkills] = useState([]);
       const [publicUserSkills, setPublicUserSkills] = useState([]);
       const [matches, setMatches] = useState([]);
 
-      const [loadingProfile, setLoadingProfile] = useState(false);
+      const [loadingProfile, setLoadingProfile] = useState(() => !cachedProfileView?.profile && !isOwnProfile);
       const [mediaVersion, setMediaVersion] = useState(getStoredMediaVersion);
       const [failedMediaUrls, setFailedMediaUrls] = useState({photo: null, banner: null });
       const latestFetchRef = useRef(0);
@@ -849,6 +856,7 @@ const openEditProfile = () => editProfileState.set(true);
       const [activity, setActivity] = useState([]);
       const [activityLoading, setActivityLoading] = useState(true);
       const [activityError, setActivityError] = useState(false);
+      const [showLoginModal, setShowLoginModal] = useState(false);
 
   const applyProfile = useCallback((nextProfile, nextMediaVersion, shouldSyncUser = false) => {
     if (!nextProfile) return;
@@ -863,7 +871,15 @@ const openEditProfile = () => editProfileState.set(true);
       const fetchProfileData = useCallback(async ({includeRelated = true} = { }) => {
     const fetchId = latestFetchRef.current + 1;
       latestFetchRef.current = fetchId;
-      setLoadingProfile(true);
+      const cached = profileViewCache.get(profileCacheKey);
+      if (cached && Date.now() - cached.timestamp < PROFILE_VIEW_CACHE_TIME) {
+        if (cached.profile) applyProfile(cached.profile, cached.mediaVersion, false);
+        setUserSkills(cached.userSkills || []);
+        setPublicUserSkills(cached.publicUserSkills || []);
+        setMatches(cached.matches || []);
+        return cached.profile || user || null;
+      }
+      setLoadingProfile(!cached?.profile && !(isOwnProfile && user));
       try {
       if (!isOwnProfile) {
         const [profileRes, skillsRes] = await Promise.allSettled([
@@ -883,14 +899,34 @@ const openEditProfile = () => editProfileState.set(true);
         setPublicUserSkills(asArray(unwrap(skillsRes.value)));
         }
 
+      profileViewCache.set(profileCacheKey, {
+        timestamp: Date.now(),
+        profile: selectedProfile,
+        publicUserSkills: skillsRes?.status === 'fulfilled' ? asArray(unwrap(skillsRes.value)) : [],
+        userSkills: [],
+        matches: [],
+        mediaVersion,
+      });
+
       return selectedProfile || null;
       }
 
       if (includeRelated) {
         const [skillsRes, matchesRes] = await Promise.allSettled([getUserSkills(), getMatches()]);
       if (latestFetchRef.current !== fetchId) return null;
-      if (skillsRes?.status === 'fulfilled') setUserSkills(asArray(unwrap(skillsRes.value)));
-      if (matchesRes?.status === 'fulfilled') setMatches(asArray(unwrap(matchesRes.value)));
+      const nextUserSkills = skillsRes?.status === 'fulfilled' ? asArray(unwrap(skillsRes.value)) : [];
+      const nextMatches = matchesRes?.status === 'fulfilled' ? asArray(unwrap(matchesRes.value)) : [];
+      if (skillsRes?.status === 'fulfilled') setUserSkills(nextUserSkills);
+      if (matchesRes?.status === 'fulfilled') setMatches(nextMatches);
+
+      profileViewCache.set(profileCacheKey, {
+        timestamp: Date.now(),
+        profile: user,
+        userSkills: nextUserSkills,
+        publicUserSkills: [],
+        matches: nextMatches,
+        mediaVersion,
+      });
       }
 
       return user;
@@ -899,48 +935,68 @@ const openEditProfile = () => editProfileState.set(true);
         setLoadingProfile(false);
       }
     }
-  }, [applyProfile, isOwnProfile, userId, user]);
+  }, [applyProfile, isOwnProfile, userId, user, profileCacheKey, mediaVersion]);
 
   useEffect(() => {
-        let active = true;
-    const timer = window.setTimeout(() => {
+    let active = true;
+    queueMicrotask(() => {
       if (!active) return;
-      setProfile(isOwnProfile ? user : null);
-      setPublicUserSkills([]);
+      if (cachedProfileView && Date.now() - cachedProfileView.timestamp < PROFILE_VIEW_CACHE_TIME) {
+        setProfile(cachedProfileView.profile || (isOwnProfile ? user : null));
+        setUserSkills(cachedProfileView.userSkills || []);
+        setPublicUserSkills(cachedProfileView.publicUserSkills || []);
+        setMatches(cachedProfileView.matches || []);
+      } else {
+        setProfile(isOwnProfile ? user : null);
+        setPublicUserSkills([]);
+      }
       setFailedMediaUrls({photo: null, banner: null });
       fetchProfileData().catch((error) => {
         if (active) console.error('[Profile] Initial fetch failed:', error?.response?.data || error);
       });
-    }, 0);
+    });
 
     return () => {
         active = false;
-      window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchProfileData, isOwnProfile, user?.id]);
+  }, [fetchProfileData, isOwnProfile, user?.id, cachedProfileView]);
 
       // Fetch activity timeline for the profile being viewed
       const targetUserId = isOwnProfile ? user?.id : userId;
   const fetchActivity = useCallback(async () => {
     if (!targetUserId) return;
-      setActivityLoading(true);
+    const cached = profileViewCache.get(profileCacheKey);
+    setActivityLoading(!cached?.activity);
       setActivityError(false);
       try {
       const res = await getUserActivity(targetUserId);
       const data = res?.data?.data ?? res?.data ?? [];
-      setActivity(Array.isArray(data) ? data.slice(0, 5) : []);
+      const nextActivity = Array.isArray(data) ? data.slice(0, 5) : [];
+      setActivity(nextActivity);
+      const cached = profileViewCache.get(profileCacheKey);
+      if (cached) profileViewCache.set(profileCacheKey, { ...cached, activity: nextActivity, activityTimestamp: Date.now() });
     } catch {
         setActivityError(true);
     } finally {
         setActivityLoading(false);
     }
-  }, [targetUserId]);
+  }, [targetUserId, profileCacheKey]);
 
   useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        fetchActivity();
-  }, [fetchActivity]);
+    const cached = profileViewCache.get(profileCacheKey);
+    if (cached?.activity && Date.now() - (cached.activityTimestamp || 0) < PROFILE_VIEW_CACHE_TIME) {
+      queueMicrotask(() => {
+        setActivity(cached.activity);
+        setActivityLoading(false);
+        setActivityError(false);
+      });
+      return;
+    }
+    queueMicrotask(() => {
+      fetchActivity();
+    });
+  }, [fetchActivity, profileCacheKey]);
 
       const profileData = useMemo(
     () => profile || (isOwnProfile ? user : null) || { },
@@ -973,6 +1029,13 @@ const openEditProfile = () => editProfileState.set(true);
       .filter(Boolean);
   }, [skillItems]);
   const openAddSkills = (tab) => navigate(`/skills?tab=${tab}&add=1`);
+  const requireAuthAction = (action) => {
+    if (!user?.id) {
+      setShowLoginModal(true);
+      return;
+    }
+    action();
+  };
       const matchCount = formatCount(pick(profileData.matches_count, isOwnProfile ? matches.length || null : null), '0');
       const completedSwaps = formatCount(pick(stats.total_sessions, profileData.posts_count, profileData.activity_count), '0');
       const cancelledSessions = formatCount(pick(stats.cancelled_sessions, profileData.cancelled_sessions, stats.cancelled_sessions_count), '0');
@@ -1002,7 +1065,22 @@ const openEditProfile = () => editProfileState.set(true);
   }, [isOwnProfile, profileData]);
 
   const handleProfileSave = async (formData) => {
+    const previousProfile = profile;
     try {
+      if (isOwnProfile && previousProfile) {
+        const optimisticProfile = { ...previousProfile };
+        for (const [key, value] of formData.entries()) {
+          if (!(value instanceof File)) optimisticProfile[key] = value;
+        }
+        applyProfile(optimisticProfile, mediaVersion, true);
+        profileViewCache.set(profileCacheKey, {
+          ...(profileViewCache.get(profileCacheKey) || {}),
+          timestamp: Date.now(),
+          profile: optimisticProfile,
+          mediaVersion,
+        });
+      }
+
       const response = await updateProfile(formData);
       const updatedProfile = unwrap(response);
       const nextMediaVersion = Date.now();
@@ -1011,15 +1089,15 @@ const openEditProfile = () => editProfileState.set(true);
 
       if (updatedProfile) {
         applyProfile(updatedProfile, nextMediaVersion, true);
+        profileViewCache.set(profileCacheKey, {
+          ...(profileViewCache.get(profileCacheKey) || {}),
+          timestamp: Date.now(),
+          profile: updatedProfile,
+          mediaVersion: nextMediaVersion,
+        });
       }
-
-      const freshProfile = await fetchProfileData({includeRelated: false });
-      if (freshProfile) {
-        applyProfile(freshProfile, nextMediaVersion, true);
-      }
-
-      toast.success('Profile updated');
     } catch (error) {
+      if (previousProfile) applyProfile(previousProfile, mediaVersion, true);
         console.error('[Profile] Update failed:', {
           status: error?.response?.status,
           data: error?.response?.data,
@@ -1040,7 +1118,7 @@ const openEditProfile = () => editProfileState.set(true);
 
       return (
       <AppLayout>
-        <div className="mx-auto max-w-[900px] space-y-5 px-4 sm:px-0">
+        <div className="mx-auto max-w-[900px] space-y-5">
           {!isOwnProfile ? (
             <MobileBackButton
               label="Matches"
@@ -1120,10 +1198,10 @@ const openEditProfile = () => editProfileState.set(true);
               {/* Action buttons */}
               {!isOwnProfile && (
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                  <button onClick={() => navigate('/messages', { state: { openChatWith: { user_id: userId, user_name: displayName, user_photo: photoUrl } } })} className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--accent-primary)] px-6 py-[10px] font-medium text-[var(--accent-primary)] transition-all hover:bg-[rgba(124,111,247,0.1)] sm:w-auto">
+                  <button onClick={() => requireAuthAction(() => navigate('/messages', { state: { openChatWith: { user_id: userId, user_name: displayName, user_photo: photoUrl } } }))} className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--accent-primary)] px-6 py-[10px] font-medium text-[var(--accent-primary)] transition-all hover:bg-[rgba(124,111,247,0.1)] sm:w-auto">
                     <HiChat size={18} /> Message
                   </button>
-                  <button onClick={() => navigate('/sessions')} className="btn-primary flex w-full items-center gap-2 px-6 sm:w-auto">
+                  <button onClick={() => requireAuthAction(() => navigate('/sessions'))} className="btn-primary flex w-full items-center gap-2 px-6 sm:w-auto">
                     <HiLightningBolt size={18} /> Request Session
                   </button>
                   <ProfileActionsMenu userId={userId} displayName={displayName} />
@@ -1395,6 +1473,8 @@ const openEditProfile = () => editProfileState.set(true);
             onSave={handleProfileSave}
           />
         )}
+
+        <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
 
 
       </AppLayout>

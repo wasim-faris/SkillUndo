@@ -21,14 +21,6 @@ const FIELD_MESSAGE_MAP = {
   'ensure this field has no more than':                'This value is too long.',
 };
 
-const GENERAL_MESSAGE_MAP = {
-  'no active account found with the given credentials': null, // handled specially
-  'invalid email or password':                          null, // handled specially
-  'email or password is incorrect':                     null, // handled specially
-  'given token not valid for any token type':           'Your session has expired. Please sign in again.',
-  'token is invalid or expired':                        'Your session has expired. Please sign in again.',
-};
-
 function humanize(raw) {
   if (!raw) return '';
   const lower = raw.toLowerCase();

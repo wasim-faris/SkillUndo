@@ -9,6 +9,8 @@ const api = axios.create({
   },
 })
 
+const GUEST_BROWSABLE_PATHS = ['/matches', '/skills', '/profile'];
+
 // attach JWT token to every request automatically
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
@@ -30,7 +32,8 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const isAuthUrl = error.config?.url?.includes('/auth/');
-    if (error.response?.status === 401 && !isAuthUrl) {
+    const isGuestBrowsablePath = GUEST_BROWSABLE_PATHS.some((path) => window.location.pathname.startsWith(path));
+    if (error.response?.status === 401 && !isAuthUrl && !isGuestBrowsablePath) {
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       window.dispatchEvent(new Event('auth:logout'))
@@ -41,19 +44,45 @@ api.interceptors.response.use(
 )
 
 const cache = new Map()
+const inFlightPromises = new Map()
 
-api.getWithCache = async (url, config = {}) => {
+api.getCacheValue = (url, params = {}) => {
+  const key = `${url}?${JSON.stringify(params)}`
+  const cached = cache.get(key)
+  if (cached && Date.now() - cached.timestamp < 60000) {
+    return cached.response
+  }
+  return null
+}
+
+api.getWithCache = (url, config = {}) => {
   const { cacheTime = 30000, force = false, ...axiosConfig } = config
   const key = `${url}?${JSON.stringify(axiosConfig.params || {})}`
   
-  const cached = cache.get(key)
-  if (!force && cached && Date.now() - cached.timestamp < cacheTime) {
-    return Promise.resolve(cached.response)
+  if (!force) {
+    const cached = cache.get(key)
+    if (cached && Date.now() - cached.timestamp < cacheTime) {
+      return Promise.resolve(cached.response)
+    }
+    const inFlight = inFlightPromises.get(key)
+    if (inFlight) {
+      return inFlight
+    }
   }
 
-  const response = await api.get(url, axiosConfig)
-  cache.set(key, { timestamp: Date.now(), response })
-  return response
+  const promise = api.get(url, axiosConfig)
+    .then((response) => {
+      cache.set(key, { timestamp: Date.now(), response })
+      inFlightPromises.delete(key)
+      return response
+    })
+    .catch((error) => {
+      inFlightPromises.delete(key)
+      return Promise.reject(error)
+    })
+
+  inFlightPromises.set(key, promise)
+  return promise
 }
 
 export default api

@@ -18,18 +18,24 @@ export default function OTPVerification() {
   const inputRefs = useRef([]);
 
   useEffect(() => {
+    let active = true;
     const pendingEmail = localStorage.getItem('pending_email');
     if (!pendingEmail) {
       navigate('/login');
       return;
     }
-    setEmail(pendingEmail);
+    queueMicrotask(() => {
+      if (active) setEmail(pendingEmail);
+    });
 
     const interval = setInterval(() => {
       setTimer((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, [navigate]);
 
   const handleChange = (index, value) => {

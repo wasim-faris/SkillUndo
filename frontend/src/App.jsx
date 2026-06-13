@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import PublicRoute from './routes/PublicRoute';
@@ -29,17 +28,9 @@ function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="page-transition-wrapper"
-      >
-        <Suspense fallback={<PageSkeleton />}>
-          <Routes location={location}>
+    <div className="page-transition-wrapper">
+      <Suspense fallback={<PageSkeleton />}>
+        <Routes location={location}>
             {/* Root Redirect */}
             <Route path="/" element={<Navigate to="/matches" replace />} />
 
@@ -54,14 +45,16 @@ function AnimatedRoutes() {
               <Route path="/api/v1/auth/reset-password-confirm/:token" element={<ResetPassword />} />
             </Route>
 
+            {/* Guest-browsable Application Routes */}
+            <Route path="/matches" element={<Matches />} />
+            <Route path="/profile/:user_id" element={<Profile />} />
+            <Route path="/skills" element={<Skills />} />
+
             {/* Protected Application Routes */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/matches" element={<Matches />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/profile/:user_id" element={<Profile />} />
               <Route path="/sessions" element={<Sessions />} />
               <Route path="/messages" element={<Messages />} />
-              <Route path="/skills" element={<Skills />} />
 
               <Route element={<AdminRoute />}>
                 <Route path="/dashboard" element={<AdminLayout />}>
@@ -77,10 +70,9 @@ function AnimatedRoutes() {
 
             {/* Catch-all Redirect */}
             <Route path="*" element={<Navigate to="/matches" replace />} />
-          </Routes>
-        </Suspense>
-      </motion.div>
-    </AnimatePresence>
+        </Routes>
+      </Suspense>
+    </div>
   );
 }
 

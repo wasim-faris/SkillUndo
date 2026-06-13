@@ -79,6 +79,7 @@ export default function Auth() {
   // Clean up timeout on unmount
   useEffect(() => () => {
     if (googleAuthTimeoutRef.current) window.clearTimeout(googleAuthTimeoutRef.current);
+    setGoogleLoading(false);
   }, []);
 
   const clearGoogleAuthState = useCallback(() => {
@@ -89,20 +90,17 @@ export default function Auth() {
     setGoogleLoading(false);
   }, []);
 
-  // Called from the wrapper div's onClick — fires from the real user gesture
-  // before Google opens the popup, so the browser trusts the subsequent popup.
+  useEffect(() => {
+    const resetTimer = window.setTimeout(clearGoogleAuthState, 0);
+    return () => window.clearTimeout(resetTimer);
+  }, [location.pathname, clearGoogleAuthState]);
+
+  // Keep the wrapper click as a real user gesture for Google's SDK, but do not
+  // show app loading until Google returns a credential.
   const handleGoogleWrapperClick = useCallback(() => {
-    if (googleLoading) return;
-    console.log('[GoogleAuth] Wrapper clicked — genuine user gesture. Setting loading state.');
+    if (googleLoading || loading) return;
     clearAll();
-    setGoogleLoading(true);
-    // Safety timeout: if Google never calls onSuccess/onError, reset after 60 s
-    googleAuthTimeoutRef.current = window.setTimeout(() => {
-      console.warn('[GoogleAuth] Timeout — Google popup never responded in 60 s.');
-      clearGoogleAuthState();
-      toast.error('Google sign in timed out. Please try again.', { id: 'google-timeout' });
-    }, 60000);
-  }, [googleLoading, clearAll, clearGoogleAuthState]);
+  }, [googleLoading, loading, clearAll]);
 
 
 
@@ -116,12 +114,14 @@ export default function Auth() {
       return;
     }
 
-    if (googleAuthTimeoutRef.current) {
-      window.clearTimeout(googleAuthTimeoutRef.current);
-      googleAuthTimeoutRef.current = null;
-    }
-
     clearAll();
+    setGoogleLoading(true);
+    googleAuthTimeoutRef.current = window.setTimeout(() => {
+      console.warn('[GoogleAuth] Timeout — backend verification did not finish in 60 s.');
+      clearGoogleAuthState();
+      toast.error('Google sign in timed out. Please try again.', { id: 'google-timeout' });
+    }, 60000);
+
     try {
       console.log('[GoogleAuth] Calling backend googleLogin API…');
       const response = await googleLogin(credential);
@@ -643,7 +643,7 @@ export default function Auth() {
                         ID token in production without modifying the backend:
 
                         1. Wrapper div onClick fires from the GENUINE user gesture
-                           (sets loading state / starts timeout).
+                           (clears stale errors only).
                         2. GoogleLogin sits in an absolutely-positioned layer, opacity
                            near-zero but still interactive, so it receives the REAL
                            pointer event that the browser trusts for popup opening.
@@ -657,14 +657,15 @@ export default function Auth() {
                         onSuccess nor onError fires — hence the 60 s timeout.
                       */}
                       <div
-                        className="relative w-full cursor-pointer"
+                        className={`relative w-full ${googleLoading || loading ? 'cursor-wait' : 'cursor-pointer'}`}
                         onClick={handleGoogleWrapperClick}
-                        role="presentation"
+                        role="button"
+                        aria-disabled={googleLoading || loading}
                       >
                         {/* Layer 1 — Google's real button (invisible but clickable) */}
                         <div
                           aria-hidden="true"
-                          className="absolute inset-0 z-10 overflow-hidden flex items-center justify-center"
+                          className={`absolute inset-0 z-10 flex items-center justify-center overflow-hidden ${googleLoading || loading ? 'pointer-events-none' : ''}`}
                           style={{ opacity: 0.001 }}
                         >
                           <GoogleLogin

@@ -1,8 +1,21 @@
+import { useEffect } from 'react';
 import TopNav from './TopNav';
 import BottomNav from './BottomNav';
 import Sidebar from './Sidebar';
+import { useAuth } from '../../context/AuthContext';
+import { getMatches, getUserSkills } from '../../api/skills';
+import { getProfile } from '../../api/auth';
 
 export default function AppLayout({ children }) {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.id) {
+      getMatches().catch(() => {});
+      getUserSkills().catch(() => {});
+      getProfile().catch(() => {});
+    }
+  }, [user?.id]);
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <TopNav />

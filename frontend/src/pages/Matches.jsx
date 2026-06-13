@@ -1,17 +1,31 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { HiBadgeCheck, HiLocationMarker, HiSearch, HiTranslate } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import Avatar from '../components/ui/Avatar';
+import LoginModal from '../components/ui/LoginModal';
 import SessionRequestModal from '../components/sessions/SessionRequestModal';
+import { useAuth } from '../context/AuthContext';
 import { getMatches, getUserSkills } from '../api/skills';
 
 const unwrap = (response) => response?.data?.data ?? response?.data ?? [];
 const asArray = (value) => (Array.isArray(value) ? value : []);
+const demoMatches = [
+  { id: 'demo-python-english', name: 'Aarav Mehta', city: 'Remote', language: 'English', is_available: true, profile: { credits: 12 } },
+  { id: 'demo-design-react', name: 'Maya Chen', city: 'Bengaluru', language: 'Hindi, English', is_available: true, profile: { credits: 8 } },
+  { id: 'demo-django-graphics', name: 'Sam Rivera', city: 'Pune', language: 'English', is_available: true, profile: { credits: 15 } },
+];
+const skillCategories = ['Coding', 'Languages', 'Design', 'Marketing', 'Music', 'Business'];
+const recentActivity = ['Python ↔ English', 'UI Design ↔ React', 'Django ↔ Graphic Design'];
+const EXPLORE_CACHE_TIME = 5 * 60 * 1000;
+const exploreCache = new Map();
+let explorePromise = null;
+let cachedSearch = '';
+const isExploreCacheFresh = (entry) => Boolean(entry && Date.now() - entry.timestamp < EXPLORE_CACHE_TIME);
 
-function MatchCard({ match, delay, onRequest, onViewProfile }) {
+const MatchCard = memo(function MatchCard({ match, delay, onRequest, onViewProfile }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -73,26 +87,69 @@ function MatchCard({ match, delay, onRequest, onViewProfile }) {
       </div>
     </motion.div>
   );
-}
+});
 
 export default function Matches() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const [matches, setMatches] = useState([]);
-  const [userSkills, setUserSkills] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const isGuest = !user?.id;
+  const cacheKey = isGuest ? 'guest' : `user:${user?.id || 'anonymous'}`;
+  const cachedExplore = exploreCache.get(cacheKey);
+  const [hasFreshExploreCache] = useState(() => isExploreCacheFresh(cachedExplore));
+  const [search, setSearch] = useState(cachedSearch);
+  const [matches, setMatches] = useState(() => cachedExplore?.matches || []);
+  const [userSkills, setUserSkills] = useState(() => cachedExplore?.userSkills || []);
+  const [loading, setLoading] = useState(() => !hasFreshExploreCache);
   const [requestReceiverId, setRequestReceiverId] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
     let active = true;
+    const freshCache = isExploreCacheFresh(cachedExplore);
 
-    Promise.all([getMatches(), getUserSkills()])
+    if (freshCache) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setMatches(cachedExplore.matches);
+        setUserSkills(cachedExplore.userSkills);
+        setLoading(false);
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    if (isGuest) {
+      Promise.resolve().then(() => {
+        if (!active) return;
+        setMatches(demoMatches);
+        setUserSkills([]);
+        exploreCache.set(cacheKey, { timestamp: Date.now(), matches: demoMatches, userSkills: [] });
+        setLoading(false);
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (active) setLoading(matches.length === 0);
+    });
+    if (!explorePromise) {
+      explorePromise = Promise.all([getMatches(), getUserSkills()]).finally(() => {
+        explorePromise = null;
+      });
+    }
+
+    explorePromise
       .then(([matchesRes, skillsRes]) => {
         if (!active) return;
         const skills = asArray(unwrap(skillsRes));
-        setMatches(asArray(unwrap(matchesRes)));
+        const nextMatches = asArray(unwrap(matchesRes));
+        setMatches(nextMatches);
         setUserSkills(skills);
+        exploreCache.set(cacheKey, { timestamp: Date.now(), matches: nextMatches, userSkills: skills });
       })
       .catch(() => {
         if (active) toast.error('Failed to load matches');
@@ -104,6 +161,16 @@ export default function Matches() {
     return () => {
       active = false;
     };
+  }, [cacheKey, cachedExplore, isGuest, matches.length]);
+
+  const updateSearch = useCallback((value) => {
+    cachedSearch = value;
+    setSearch(value);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    cachedSearch = '';
+    setSearch('');
   }, []);
 
   const filteredMatches = useMemo(() => {
@@ -122,6 +189,11 @@ export default function Matches() {
   }, [matches, search]);
 
   const openRequestModal = (receiverId = '') => {
+    if (isGuest) {
+      setShowLoginModal(true);
+      return;
+    }
+
     if (!userSkills.some((item) => item?.skill_type === 'teach') || !userSkills.some((item) => item?.skill_type === 'learn')) {
       toast.error('Add at least one teaching and one learning skill first');
       navigate('/skills?tab=teaching&add=1');
@@ -135,13 +207,59 @@ export default function Matches() {
   return (
     <AppLayout>
       <div className="w-full space-y-6">
+        <section className="card-premium overflow-hidden p-5 sm:p-6">
+          <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+            <div>
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[var(--accent-primary)]">Skill Swap MVP</p>
+              <h1 className="max-w-2xl text-3xl font-black leading-tight text-[var(--text-primary)] sm:text-4xl">
+                Learn Skills By Teaching Skills
+              </h1>
+              <p className="mt-3 max-w-xl text-base leading-7 text-[var(--text-secondary)]">
+                Exchange knowledge with real people and grow together.
+              </p>
+              <div className="mt-5 grid gap-3 sm:flex sm:flex-wrap">
+                <button onClick={() => document.getElementById('skill-search')?.focus()} className="btn-primary w-full px-5 py-3 sm:w-auto">
+                  Find Skills
+                </button>
+                <button onClick={clearSearch} className="btn-ghost w-full px-5 py-3 sm:w-auto">
+                  Browse Members
+                </button>
+                <button onClick={() => openRequestModal()} className="btn-ghost w-full px-5 py-3 sm:w-auto">
+                  Start Learning
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-3">
+              <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
+                <p className="mb-3 text-xs font-black uppercase tracking-wider text-[var(--text-muted)]">Skill Categories</p>
+                <div className="flex flex-wrap gap-2">
+                  {skillCategories.map((category) => (
+                    <span key={category} className="skill-tag tag-coding px-3 py-1.5 text-[11px]">{category}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-4">
+                <p className="mb-3 text-xs font-black uppercase tracking-wider text-[var(--text-muted)]">Recent Activity</p>
+                <div className="space-y-2">
+                  {recentActivity.map((activity) => (
+                    <div key={activity} className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                      {activity}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="card-premium flex flex-col justify-between gap-4 p-4 md:flex-row md:items-center">
           <div className="relative w-full md:w-96">
             <HiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
+              id="skill-search"
               type="text"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => updateSearch(event.target.value)}
               placeholder="Search by name, city, or skill..."
               className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] py-2.5 pl-11 pr-4 text-sm text-[var(--text-primary)] transition-all focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
             />
@@ -172,8 +290,9 @@ export default function Matches() {
           </div>
         ) : (
           <div className="card-premium p-12 text-center">
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">No matches found</h2>
-            <p className="mt-2 text-[var(--text-secondary)]">Add more teaching and learning skills to improve your match pool.</p>
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] text-3xl">↔</div>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">No swaps yet.</h2>
+            <p className="mt-2 text-[var(--text-secondary)]">Start your first learning exchange today.</p>
           </div>
         )}
       </div>
@@ -186,6 +305,7 @@ export default function Matches() {
           onClose={() => setShowRequestModal(false)}
         />
       ) : null}
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
     </AppLayout>
   );
 }
