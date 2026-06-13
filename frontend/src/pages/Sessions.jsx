@@ -35,9 +35,49 @@ const FILTERS = [
   { label: 'Completed', value: 'completed' },
   { label: 'Cancelled', value: 'cancelled' },
 ];
+const SORT_OPTIONS = [
+  { label: 'Newest', value: 'newest' },
+  { label: 'Oldest', value: 'oldest' },
+  { label: 'Status', value: 'status' },
+];
+const SESSIONS_CACHE_TIME = 2 * 60 * 1000;
+const sessionListCache = new Map();
+const sessionDetailCache = new Map();
+const sessionListPromiseCache = new Map();
+const sessionDetailPromiseCache = new Map();
+let creditsCache = null;
+let creditsPromise = null;
 
 const unwrap = (response) => response?.data?.data ?? response?.data ?? [];
 const asArray = (value) => (Array.isArray(value) ? value : []);
+
+const getSessionCacheKey = (userId, filter) => `${userId || 'guest'}:${filter || 'all'}`;
+const isFresh = (entry, ttl) => Boolean(entry && Date.now() - entry.timestamp < ttl);
+const writeSessionCache = (userId, filter, sessions) => {
+  sessionListCache.set(getSessionCacheKey(userId, filter), {
+    timestamp: Date.now(),
+    sessions: asArray(sessions),
+  });
+};
+const updateSessionInCaches = (session) => {
+  if (!session?.id) return;
+  sessionDetailCache.set(session.id, { timestamp: Date.now(), session });
+  sessionListCache.forEach((entry, key) => {
+    if (!entry?.sessions?.some((item) => item.id === session.id)) return;
+    sessionListCache.set(key, {
+      ...entry,
+      timestamp: Date.now(),
+      sessions: entry.sessions.map((item) => (item.id === session.id ? { ...item, ...session } : item)),
+    });
+  });
+};
+const prependSessionToCaches = (session) => {
+  if (!session?.id) return;
+  sessionListCache.forEach((entry, key) => {
+    if (!entry?.sessions || entry.sessions.some((item) => item.id === session.id)) return;
+    sessionListCache.set(key, { ...entry, sessions: [session, ...entry.sessions] });
+  });
+};
 
 const formatApiError = (error, fallback) => {
   const message = error?.response?.data?.message;
@@ -72,8 +112,9 @@ const statusBadgeClass = {
 function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cachedDetail = sessionDetailCache.get(sessionId);
+  const [session, setSession] = useState(() => cachedDetail?.session || null);
+  const [loading, setLoading] = useState(() => !cachedDetail?.session);
   const [submitting, setSubmitting] = useState(false);
   const [joining, setJoining] = useState(false);
   const [form, setForm] = useState({ reviewee_id: '', rating: 5, comment: '' });
@@ -89,11 +130,30 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
   useEffect(() => {
     let active = true;
 
-    getSessionDetail(sessionId)
+    if (cachedDetail?.session) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setSession(cachedDetail.session);
+        setLoading(false);
+      });
+    }
+
+    const detailPromise = isFresh(cachedDetail, SESSIONS_CACHE_TIME)
+      ? Promise.resolve({ cached: true, session: cachedDetail.session })
+      : sessionDetailPromiseCache.get(sessionId) || getSessionDetail(sessionId).finally(() => {
+          sessionDetailPromiseCache.delete(sessionId);
+        });
+
+    if (!sessionDetailPromiseCache.has(sessionId) && !isFresh(cachedDetail, SESSIONS_CACHE_TIME)) {
+      sessionDetailPromiseCache.set(sessionId, detailPromise);
+    }
+
+    detailPromise
       .then((response) => {
         if (!active) return;
-        const data = unwrap(response);
+        const data = response?.cached ? response.session : unwrap(response);
         setSession(data);
+        if (data?.id) updateSessionInCaches(data);
         const revieweeId = data?.sender?.id === user?.id ? data?.receiver?.id : data?.sender?.id;
         setForm((prev) => ({ ...prev, reviewee_id: revieweeId || '' }));
       })
@@ -107,7 +167,7 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
     return () => {
       active = false;
     };
-  }, [sessionId, user?.id]);
+  }, [cachedDetail, sessionId, user?.id]);
 
   const handleSubmitReview = async (event) => {
     event.preventDefault();
@@ -138,7 +198,7 @@ function SessionDetailModal({ sessionId, onClose, reviewed, onReviewSubmitted })
     try {
       await joinSession(sessionId);
       window.open(session.meeting_link, '_blank', 'noopener,noreferrer');
-    } catch (error) {
+    } catch {
       toast.error('Unable to join meeting. Please try again.');
     } finally {
       setJoining(false);
@@ -461,7 +521,7 @@ const SessionCard = memo(({ session, currentUserId, pendingAction, onAction, onO
     try {
       await joinSession(session.id);
       window.open(session.meeting_link, '_blank', 'noopener,noreferrer');
-    } catch (error) {
+    } catch {
       toast.error('Unable to join meeting. Please try again.');
     } finally {
       setJoining(false);
@@ -640,10 +700,13 @@ const SessionCard = memo(({ session, currentUserId, pendingAction, onAction, onO
 
 export default function Sessions() {
   const { user } = useAuth();
+  const userId = user?.id;
   const [filter, setFilter] = useState('all');
-  const [sessions, setSessions] = useState([]);
-  const [credits, setCredits] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialSessionCache = sessionListCache.get(getSessionCacheKey(userId, 'all'));
+  const [sessions, setSessions] = useState(() => initialSessionCache?.sessions || []);
+  const [credits, setCredits] = useState(() => creditsCache?.credits || []);
+  const [loading, setLoading] = useState(() => !initialSessionCache?.sessions);
+  const [sortBy, setSortBy] = useState('newest');
   const [pendingAction, setPendingAction] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [detailSessionId, setDetailSessionId] = useState('');
@@ -653,53 +716,100 @@ export default function Sessions() {
   const filterRef = useRef(filter);
   useEffect(() => { filterRef.current = filter; }, [filter]);
 
-  const fetchSessions = useCallback(async (statusOverride) => {
+  const fetchSessions = useCallback(async (statusOverride, { force = false } = {}) => {
     const statusToFetch = statusOverride !== undefined ? statusOverride : filterRef.current;
+    const cacheKey = getSessionCacheKey(userId, statusToFetch);
+    const cachedSessions = sessionListCache.get(cacheKey);
+
+    if (!force && cachedSessions?.sessions) {
+      setSessions(cachedSessions.sessions);
+      setLoading(false);
+      if (isFresh(cachedSessions, SESSIONS_CACHE_TIME)) {
+        if (creditsCache?.credits) setCredits(creditsCache.credits);
+        return cachedSessions.sessions;
+      }
+    }
+
     try {
+      if (!sessionListPromiseCache.has(cacheKey)) {
+        sessionListPromiseCache.set(cacheKey, getMySessions(statusToFetch).finally(() => {
+          sessionListPromiseCache.delete(cacheKey);
+        }));
+      }
+      const hasFreshCredits = creditsCache && isFresh(creditsCache, SESSIONS_CACHE_TIME);
+      if (!hasFreshCredits && !creditsPromise) {
+        creditsPromise = getCreditHistory().finally(() => {
+          creditsPromise = null;
+        });
+      }
+
       const [sessionsRes, creditsRes] = await Promise.all([
-        getMySessions(statusToFetch),
-        getCreditHistory(),
+        sessionListPromiseCache.get(cacheKey),
+        hasFreshCredits
+          ? Promise.resolve({ data: { data: creditsCache.credits } })
+          : creditsPromise,
       ]);
-      setSessions(asArray(unwrap(sessionsRes)));
-      setCredits(asArray(unwrap(creditsRes)));
+
+      const sessionList = asArray(unwrap(sessionsRes));
+      const nextCredits = asArray(unwrap(creditsRes));
+      writeSessionCache(userId, statusToFetch, sessionList);
+      creditsCache = { timestamp: Date.now(), credits: nextCredits };
+      setSessions(sessionList);
+      setCredits(nextCredits);
+      return sessionList;
     } catch (error) {
       toast.error(formatApiError(error, 'Failed to load sessions'));
+      return cachedSessions?.sessions || [];
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
 
     const run = async () => {
       try {
-        const [sessionsRes, creditsRes] = await Promise.all([
-          getMySessions(filter),
-          getCreditHistory(),
-        ]);
+        const cached = sessionListCache.get(getSessionCacheKey(userId, filter));
+        if (cached?.sessions) {
+          setSessions(cached.sessions);
+          setLoading(false);
+        } else {
+          setLoading(true);
+        }
+
+        const sessionList = await fetchSessions(filter);
         if (!active) return;
-        const sessionList = asArray(unwrap(sessionsRes));
-        setSessions(sessionList);
-        setCredits(asArray(unwrap(creditsRes)));
 
         // Hydrate confirmed sessions with full detail data so meeting_link is available.
         // The list endpoint may not serialize meeting_link; the detail endpoint always does.
-        const confirmedSessions = sessionList.filter(s => s.status === 'confirmed');
+        const confirmedSessions = sessionList.filter(s => s.status === 'confirmed' && !isFresh(sessionDetailCache.get(s.id), SESSIONS_CACHE_TIME));
         if (confirmedSessions.length > 0) {
           const detailResults = await Promise.allSettled(
-            confirmedSessions.map(s => getSessionDetail(s.id))
+            confirmedSessions.map((s) => {
+              if (!sessionDetailPromiseCache.has(s.id)) {
+                sessionDetailPromiseCache.set(s.id, getSessionDetail(s.id).finally(() => {
+                  sessionDetailPromiseCache.delete(s.id);
+                }));
+              }
+              return sessionDetailPromiseCache.get(s.id);
+            })
           );
           if (!active) return;
           const hydratedMap = {};
-          detailResults.forEach((result, idx) => {
+          detailResults.forEach((result) => {
             if (result.status === 'fulfilled') {
               const full = unwrap(result.value);
               if (full?.id) hydratedMap[full.id] = full;
             }
           });
           if (Object.keys(hydratedMap).length > 0) {
-            setSessions(prev => prev.map(s => hydratedMap[s.id] ? hydratedMap[s.id] : s));
+            Object.values(hydratedMap).forEach(updateSessionInCaches);
+            setSessions(prev => {
+              const next = prev.map(s => hydratedMap[s.id] ? hydratedMap[s.id] : s);
+              writeSessionCache(userId, filter, next);
+              return next;
+            });
           }
         }
       } catch (error) {
@@ -713,15 +823,31 @@ export default function Sessions() {
     return () => {
       active = false;
     };
-  }, [filter]);
+  }, [fetchSessions, filter, userId]);
 
   const creditsEarned = useMemo(
     () => credits.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
     [credits],
   );
+  const visibleSessions = useMemo(() => {
+    const next = [...sessions];
+    if (sortBy === 'oldest') {
+      return next.sort((a, b) => new Date(a.proposed_time || a.created_at || 0) - new Date(b.proposed_time || b.created_at || 0));
+    }
+    if (sortBy === 'status') {
+      return next.sort((a, b) => String(a.status || '').localeCompare(String(b.status || '')));
+    }
+    return next.sort((a, b) => new Date(b.proposed_time || b.created_at || 0) - new Date(a.proposed_time || a.created_at || 0));
+  }, [sessions, sortBy]);
 
   const applySessionUpdate = (sessionId, updater) => {
-    setSessions((prev) => prev.map((item) => (item.id === sessionId ? updater(item) : item)));
+    setSessions((prev) => {
+      const next = prev.map((item) => (item.id === sessionId ? updater(item) : item));
+      writeSessionCache(userId, filterRef.current, next);
+      const changed = next.find((item) => item.id === sessionId);
+      if (changed) updateSessionInCaches(changed);
+      return next;
+    });
   };
 
   const handleAction = async (action, session) => {
@@ -757,8 +883,7 @@ export default function Sessions() {
         } else {
           toast.success('Marked complete — waiting for the other person to confirm.');
         }
-        setLoading(true);
-        await fetchSessions();
+        await fetchSessions(undefined, { force: true });
       } else if (action === 'accept') {
         toast.success('Session accepted!');
         // Fetch the full session detail to get meeting_link (auto-generated by backend).
@@ -771,17 +896,14 @@ export default function Sessions() {
           }
         } catch {
           // Non-critical: fall back to a full list refetch
-          setLoading(true);
-          await fetchSessions();
+          await fetchSessions(undefined, { force: true });
         }
       } else if (action === 'decline') {
         toast.success('Session declined.');
-        setLoading(true);
-        await fetchSessions();
+        await fetchSessions(undefined, { force: true });
       } else if (action === 'cancel') {
         toast.success('Session cancelled.');
-        setLoading(true);
-        await fetchSessions();
+        await fetchSessions(undefined, { force: true });
       }
     } catch (error) {
       applySessionUpdate(session.id, () => previousSession);
@@ -796,30 +918,41 @@ export default function Sessions() {
       <div className="flex w-full max-w-6xl flex-col gap-5 lg:flex-row lg:items-start">
         {/* Main Content Area */}
         <div className="flex-1 space-y-4 min-w-0">
-          <div className="card-premium flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+          <div className="card-premium flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
               <h1 className="text-xl font-extrabold text-[var(--text-primary)]">My Sessions</h1>
-              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Track request status, complete sessions, and leave reviews.</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">Track request status, complete sessions, and leave reviews.</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-1">
+            <div className="flex w-full min-w-0 flex-col gap-2 lg:w-auto lg:items-end">
+              <div className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:w-auto lg:overflow-visible">
                 {FILTERS.map((option) => (
                   <button
                     key={option.value}
                     onClick={() => {
-                      setLoading(true);
                       setFilter(option.value);
                     }}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${filter === option.value ? 'bg-[var(--accent-primary)] text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                    className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold leading-none transition-all duration-200 ${filter === option.value ? 'bg-[var(--accent-primary)] text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
                   >
                     {option.label}
                   </button>
                 ))}
               </div>
-              <button onClick={() => setShowRequestModal(true)} className="btn-primary flex w-full items-center gap-1.5 rounded-lg px-4 !py-2 text-xs font-bold shrink-0 sm:w-auto">
-                <HiUserAdd size={15} /> New Request
-              </button>
+              <div className="flex w-full min-w-0 flex-col gap-2 min-[390px]:flex-row min-[390px]:items-center lg:w-auto lg:justify-end">
+                <select
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value)}
+                  className="h-10 w-full min-w-0 rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 text-xs font-bold text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent-primary)] min-[390px]:flex-1 lg:w-40 lg:flex-none"
+                  aria-label="Sort sessions"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <button onClick={() => setShowRequestModal(true)} className="btn-primary flex h-10 w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-4 !py-0 text-xs font-bold min-[390px]:w-auto">
+                  <HiUserAdd size={15} /> New Request
+                </button>
+              </div>
             </div>
           </div>
 
@@ -829,13 +962,13 @@ export default function Sessions() {
                 <div key={index} className="card-premium h-[240px] animate-pulse bg-[var(--bg-card)] border-l-4 border-l-[var(--border-default)]" />
               ))}
             </div>
-          ) : sessions.length ? (
+          ) : visibleSessions.length ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {sessions.map((session) => (
+              {visibleSessions.map((session) => (
                 <SessionCard
                   key={session.id}
                   session={session}
-                  currentUserId={user?.id}
+                  currentUserId={userId}
                   pendingAction={pendingAction}
                   reviewed={reviewedSessions.has(session.id)}
                   onAction={handleAction}
@@ -919,9 +1052,13 @@ export default function Sessions() {
           isOpen={showRequestModal}
           onClose={() => setShowRequestModal(false)}
           onCreated={(session) => {
-            setSessions((prev) => [session, ...prev]);
+            prependSessionToCaches(session);
+            setSessions((prev) => {
+              const next = [session, ...prev.filter((item) => item.id !== session.id)];
+              writeSessionCache(userId, filter, next);
+              return next;
+            });
             if (filter !== 'all' && filter !== 'pending') {
-              setLoading(true);
               setFilter('all');
             }
           }}
@@ -944,7 +1081,7 @@ export default function Sessions() {
           onReviewSubmitted={async (sessionId) => {
             setReviewedSessions((prev) => new Set(prev).add(sessionId));
             const prevCreditCount = credits.length;
-            await fetchSessions();
+            await fetchSessions(undefined, { force: true });
             // fetchSessions updates the `credits` state; use getCreditHistory directly
             // to detect if credits were awarded (review_count reached 2 on backend)
             try {

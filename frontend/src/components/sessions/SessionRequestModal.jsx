@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { HiCalendar, HiClock, HiPaperAirplane, HiX } from 'react-icons/hi';
 import { getMatches, getUserSkills, getPublicUserSkills } from '../../api/skills';
 import { sendSessionRequest } from '../../api/sessions';
+import api from '../../api/axios';
 
 const unwrap = (response) => response?.data?.data ?? response?.data ?? [];
 
@@ -28,11 +29,20 @@ const toLocalDateTimeInput = (value) => {
 };
 
 export default function SessionRequestModal({ isOpen, onClose, onCreated, initialReceiverId = '' }) {
-  const [matches, setMatches] = useState([]);
-  const [skills, setSkills] = useState([]);
+  const cachedMatches = api.getCacheValue ? api.getCacheValue('/api/v1/me/matches/') : null;
+  const cachedSkills = api.getCacheValue ? api.getCacheValue('/api/v1/me/skills/') : null;
+
+  const [matches, setMatches] = useState(() => {
+    const data = unwrap(cachedMatches);
+    return Array.isArray(data) ? data : [];
+  });
+  const [skills, setSkills] = useState(() => {
+    const data = unwrap(cachedSkills);
+    return Array.isArray(data) ? data : [];
+  });
   const [receiverSkills, setReceiverSkills] = useState([]);
   const [loadingReceiverSkills, setLoadingReceiverSkills] = useState(() => Boolean(initialReceiverId));
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedMatches || !cachedSkills);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     receiver_id: initialReceiverId,
@@ -157,12 +167,12 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         onSubmit={handleSubmit}
-        className="card-premium flex max-h-[90vh] w-full max-w-[min(95vw,28rem)] flex-col overflow-hidden"
+        className="card-premium flex max-h-[90vh] w-full max-w-[min(95vw,42rem)] flex-col overflow-hidden"
       >
-        <div className="flex flex-col gap-3 border-b border-[var(--border-default)] px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-[var(--border-default)] px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-base font-bold text-[var(--text-primary)]">New Session Request</h2>
-            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Choose a match, your teaching skill, and what you want to learn.</p>
+            <h2 className="text-lg font-bold text-[var(--text-primary)]">New Session Request</h2>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Choose a match, your teaching skill, and what you want to learn.</p>
           </div>
           <button
             type="button"
@@ -173,15 +183,16 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {loading ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, index) => (
                 <div key={index} className="h-12 animate-pulse rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)]" />
               ))}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* Row 1: Match Selector */}
               <label className="block">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Match</span>
                 <select
@@ -197,7 +208,7 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
                     setLoadingReceiverSkills(Boolean(newReceiverId));
                   }}
                   required
-                  className="input-premium mt-1.5 text-xs !py-2"
+                  className="input-premium mt-1.5 text-sm !py-2.5"
                 >
                   <option value="">Select a match</option>
                   {matches.map((match) => (
@@ -208,10 +219,11 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
                 </select>
               </label>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Row 2: Skills Selection */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <label className="block">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Skill You Teach</span>
-                  <select value={form.teach_skill_id} onChange={handleChange('teach_skill_id')} required className="input-premium mt-1.5 text-xs !py-2">
+                  <select value={form.teach_skill_id} onChange={handleChange('teach_skill_id')} required className="input-premium mt-1.5 text-sm !py-2.5">
                     <option value="">Choose a teaching skill</option>
                     {teachSkills.map((item) => (
                       <option key={item.id} value={item.skill?.id}>
@@ -228,7 +240,7 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
                     onChange={handleChange('learn_skill_id')}
                     required
                     disabled={loadingReceiverSkills || !form.receiver_id}
-                    className="input-premium mt-1.5 text-xs !py-2"
+                    className="input-premium mt-1.5 text-sm !py-2.5"
                   >
                     <option value="">
                       {!form.receiver_id
@@ -248,7 +260,8 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
                 </label>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Row 3: Date/Time and Validation Card */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <label className="block">
                   <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                     <HiCalendar size={13} /> Date and Time
@@ -259,11 +272,11 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
                     value={form.proposed_time}
                     onChange={handleChange('proposed_time')}
                     required
-                    className="input-premium text-xs !py-2"
+                    className="input-premium text-sm !py-2.5"
                   />
                 </label>
 
-                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-2 flex flex-col justify-center">
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-4 py-3 flex flex-col justify-center">
                   <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                     <HiClock size={13} /> Validation
                   </p>
@@ -273,23 +286,25 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
                 </div>
               </div>
 
+              {/* Row 4: Message Textarea */}
               <label className="block">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Message</span>
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={form.message}
                   onChange={handleChange('message')}
                   placeholder="Provide context or guidelines for the session request..."
-                  className="input-premium mt-1.5 resize-none text-xs !py-2"
+                  className="input-premium mt-1.5 resize-none text-sm !py-2.5"
                 />
               </label>
             </div>
           )}
         </div>
 
-        <div className="border-t border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-3">
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={resetAndClose} className="btn-ghost w-full px-4 !py-1.5 text-xs sm:w-auto" disabled={submitting}>
+        {/* Row 5: Actions */}
+        <div className="border-t border-[var(--border-default)] bg-[var(--bg-card)] px-6 py-4">
+          <div className="flex flex-col-reverse gap-3 lg:flex-row lg:justify-end">
+            <button type="button" onClick={resetAndClose} className="btn-ghost w-full lg:w-auto px-5 py-2 text-xs font-bold" disabled={submitting}>
               Cancel
             </button>
             <button
@@ -304,7 +319,7 @@ export default function SessionRequestModal({ isOpen, onClose, onCreated, initia
                 !form.learn_skill_id ||
                 receiverTeachSkills.length === 0
               }
-              className="btn-primary flex w-full items-center gap-1.5 rounded-lg px-4 !py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="btn-primary flex w-full items-center justify-center gap-1.5 rounded-lg px-5 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
             >
               <HiPaperAirplane size={14} />
               {submitting ? 'Sending...' : 'Send Request'}

@@ -1,10 +1,12 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { HiArrowLeft, HiCheck, HiPlus, HiSearch, HiLightningBolt, HiX, HiSparkles } from 'react-icons/hi';
 import AppLayout from '../components/layout/AppLayout';
 import Button from '../components/ui/Button';
+import LoginModal from '../components/ui/LoginModal';
+import { useAuth } from '../context/AuthContext';
 import { getAllSkills, getUserSkills, addSkill, deleteSkill } from '../api/skills';
 
 const TABS = ['teaching', 'learning'];
@@ -29,6 +31,15 @@ const SKILL_TYPE_LABEL = {
   teach: 'Teaching',
   learn: 'Learning',
 };
+const SKILLS_CACHE_TIME = 5 * 60 * 1000;
+const skillsPageCache = new Map();
+const skillsUiState = {
+  activeTab: 'teaching',
+  showAdd: false,
+  search: '',
+};
+let allSkillsPromise = null;
+const userSkillsPromiseCache = new Map();
 
 const getSkillId = (item) => item?.skill?.id || item?.skill_id || item?.id;
 const getSkillName = (item) => item?.skill?.name || item?.name || 'Untitled skill';
@@ -130,6 +141,15 @@ const mergeUserSkill = (skills, nextSkill) => {
 const removeUserSkill = (skills, userSkillId) => {
   return normalizeUserSkills(skills).filter((item) => item.id !== userSkillId);
 };
+const getSkillsCacheKey = (userId) => userId ? `user:${userId}` : 'guest';
+const isFresh = (entry) => Boolean(entry && Date.now() - entry.timestamp < SKILLS_CACHE_TIME);
+const writeSkillsCache = (cacheKey, data) => {
+  skillsPageCache.set(cacheKey, {
+    ...(skillsPageCache.get(cacheKey) || {}),
+    ...data,
+    timestamp: Date.now(),
+  });
+};
 
 function SkillStatusBadge({ usageState }) {
   const className = usageState.isSelectedHere
@@ -187,27 +207,64 @@ function CurrentSkillCard({ userSkill, activeTab, deleting, onDelete }) {
 
 export default function Skills() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const initialTab = TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'teaching';
+  const cacheKey = getSkillsCacheKey(user?.id);
+  const cachedSkills = skillsPageCache.get(cacheKey);
+  const initialTab = TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : skillsUiState.activeTab;
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [userSkills, setUserSkills] = useState([]);
-  const [allSkills, setAllSkills] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(searchParams.get('add') === '1');
-  const [search, setSearch] = useState('');
+  const [userSkills, setUserSkills] = useState(() => cachedSkills?.userSkills || []);
+  const [allSkills, setAllSkills] = useState(() => cachedSkills?.allSkills || []);
+  const [loading, setLoading] = useState(() => !cachedSkills?.userSkills && !cachedSkills?.allSkills);
+  const [showAdd, setShowAdd] = useState(searchParams.get('add') === '1' || skillsUiState.showAdd);
+  const [search, setSearch] = useState(skillsUiState.search);
   const [addingId, setAddingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const isGuest = !user?.id;
 
-  useEffect(() => {
+  const fetchSkillsData = useCallback(async ({ force = false } = {}) => {
     let active = true;
+    const cached = skillsPageCache.get(cacheKey);
+
+    if (!force && cached) {
+      setUserSkills(cached.userSkills || []);
+      setAllSkills(cached.allSkills || []);
+      setLoading(false);
+      if (isFresh(cached)) {
+        return () => {
+          active = false;
+        };
+      }
+    }
 
     const fetchData = async () => {
-      setLoading(true);
+      setLoading(!cached?.userSkills && !cached?.allSkills);
       try {
-        const [userRes, allRes] = await Promise.all([getUserSkills(), getAllSkills()]);
+        if (!allSkillsPromise) {
+          allSkillsPromise = getAllSkills().finally(() => {
+            allSkillsPromise = null;
+          });
+        }
+        if (!isGuest && !userSkillsPromiseCache.has(cacheKey)) {
+          userSkillsPromiseCache.set(cacheKey, getUserSkills().finally(() => {
+            userSkillsPromiseCache.delete(cacheKey);
+          }));
+        }
+
+        const [userRes, allRes] = await Promise.all([
+          isGuest ? Promise.resolve({ data: [] }) : userSkillsPromiseCache.get(cacheKey),
+          allSkillsPromise,
+        ]);
         if (!active) return;
-        setUserSkills(normalizeUserSkills(unwrap(userRes)));
-        setAllSkills(Array.isArray(unwrap(allRes)) ? unwrap(allRes) : []);
+        const nextUserSkills = normalizeUserSkills(unwrap(userRes));
+        const nextAllSkills = Array.isArray(unwrap(allRes)) ? unwrap(allRes) : [];
+        setUserSkills(nextUserSkills);
+        setAllSkills(nextAllSkills);
+        writeSkillsCache(cacheKey, {
+          userSkills: nextUserSkills,
+          allSkills: nextAllSkills,
+        });
       } catch {
         if (active) toast.error('Sync failed');
       } finally {
@@ -220,7 +277,24 @@ export default function Skills() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [cacheKey, isGuest]);
+
+  useEffect(() => {
+    const promise = fetchSkillsData();
+    return () => {
+      promise.then((cleanup) => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      });
+    };
+  }, [fetchSkillsData]);
+
+  useEffect(() => {
+    skillsUiState.activeTab = activeTab;
+    skillsUiState.showAdd = showAdd;
+    skillsUiState.search = search;
+  }, [activeTab, search, showAdd]);
 
   const activeMeta = TAB_META[activeTab];
   const activeSkillType = activeMeta.apiType;
@@ -255,14 +329,23 @@ export default function Skills() {
   }, [activeSkillType, filteredGrouped, selectedSkillIds]);
 
   const handleDelete = async (userSkillId) => {
+    if (isGuest) {
+      setShowLoginModal(true);
+      return;
+    }
     const prev = normalizedUserSkills;
-    setUserSkills((p) => removeUserSkill(p, userSkillId));
+    setUserSkills((p) => {
+      const next = removeUserSkill(p, userSkillId);
+      writeSkillsCache(cacheKey, { userSkills: next, allSkills });
+      return next;
+    });
     setDeletingId(userSkillId);
     try {
       await deleteSkill(userSkillId);
       toast.success('Skill removed');
     } catch {
       setUserSkills(prev);
+      writeSkillsCache(cacheKey, { userSkills: prev, allSkills });
       toast.error('Failed to remove');
     } finally {
       setDeletingId(null);
@@ -270,20 +353,36 @@ export default function Skills() {
   };
 
   const handleAdd = async (skill) => {
+    if (isGuest) {
+      setShowLoginModal(true);
+      return;
+    }
     const usageState = getSkillUsageState(skill, selectedSkillIds, activeSkillType);
     if (usageState.isDisabled) return;
     
     const skillId = getSkillId(skill);
     setAddingId(skillId);
     const optimistic = { id: `temp-${activeSkillType}-${skillId}`, skill, skill_type: activeSkillType };
-    setUserSkills((p) => mergeUserSkill(p, optimistic));
+    setUserSkills((p) => {
+      const next = mergeUserSkill(p, optimistic);
+      writeSkillsCache(cacheKey, { userSkills: next, allSkills });
+      return next;
+    });
     try {
       const res = await addSkill(skillId, activeSkillType);
       const savedSkill = normalizeUserSkill(unwrap(res));
-      setUserSkills((p) => mergeUserSkill(removeUserSkill(p, optimistic.id), savedSkill || optimistic));
+      setUserSkills((p) => {
+        const next = mergeUserSkill(removeUserSkill(p, optimistic.id), savedSkill || optimistic);
+        writeSkillsCache(cacheKey, { userSkills: next, allSkills });
+        return next;
+      });
       toast.success(`${getSkillName(skill)} added`);
     } catch {
-      setUserSkills((p) => removeUserSkill(p, optimistic.id));
+      setUserSkills((p) => {
+        const next = removeUserSkill(p, optimistic.id);
+        writeSkillsCache(cacheKey, { userSkills: next, allSkills });
+        return next;
+      });
       toast.error('Failed to add');
     } finally {
       setAddingId(null);
@@ -300,9 +399,9 @@ export default function Skills() {
 
   return (
     <AppLayout>
-      <div className="w-full space-y-8">
+      <div className="w-full space-y-5 sm:space-y-6">
         {/* Header Section */}
-        <div className="flex flex-col justify-between gap-4 card-premium p-4 md:flex-row md:items-center">
+        <div className="card-premium flex flex-col justify-between gap-4 p-4 md:flex-row md:items-center">
           <div className="flex items-center gap-3">
             <button
               onClick={handleBack}
@@ -320,7 +419,7 @@ export default function Skills() {
             {TABS.map((tab) => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setSearch(''); }}
+                onClick={() => setActiveTab(tab)}
                 className={`
                   min-w-0 flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-all tracking-wider sm:px-6 md:flex-none
                   ${activeTab === tab
@@ -335,14 +434,14 @@ export default function Skills() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
            {/* Current List Column */}
            <div className="lg:col-span-2">
               <motion.div 
                 layout
-                className="card-premium min-h-[420px] p-4 sm:min-h-[500px] sm:p-6"
+                className="card-premium min-h-[360px] p-4 sm:min-h-[420px] sm:p-5 lg:p-6"
               >
-                <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-5 mb-6">
+                <div className="mb-5 flex flex-col gap-3 border-b border-[var(--border-default)] pb-4 sm:flex-row sm:items-center sm:justify-between">
                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-[var(--accent-primary)] rounded-xl flex items-center justify-center text-white">
                         <HiSparkles size={20} />
@@ -354,7 +453,7 @@ export default function Skills() {
                    {!showAdd && (
                      <Button
                       size="sm"
-                      onClick={() => setShowAdd(true)}
+                      onClick={() => isGuest ? setShowLoginModal(true) : setShowAdd(true)}
                       className="gap-2 !rounded-xl"
                     >
                       <HiPlus size={18} /> Add Skills
@@ -382,11 +481,11 @@ export default function Skills() {
                         {currentSkills.length === 0 ? activeMeta.empty : 'No skills match your search.'}
                       </p>
                       {currentSkills.length === 0 ? (
-                        <Button onClick={() => setShowAdd(true)} variant="outline">Add Skills</Button>
+                        <Button onClick={() => isGuest ? setShowLoginModal(true) : setShowAdd(true)} variant="outline">Add Skills</Button>
                       ) : null}
                     </motion.div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {filteredCurrentSkills.map((us) => (
                         <CurrentSkillCard
                           key={us.id}
@@ -403,12 +502,12 @@ export default function Skills() {
            </div>
 
            {/* Add/Search Column */}
-           <div className="space-y-6 min-h-0">
+           <div className="min-h-0 space-y-5">
               <motion.div 
                 animate={{ opacity: showAdd ? 1 : 0.6, y: showAdd ? 0 : 20 }}
-                className={`card-premium flex min-h-[320px] flex-col p-4 sm:min-h-[360px] sm:p-6 ${!showAdd && 'pointer-events-none grayscale'}`}
+                className={`card-premium flex min-h-[300px] flex-col p-4 sm:min-h-[340px] sm:p-5 lg:p-6 ${!showAdd && !isGuest && 'pointer-events-none grayscale'}`}
               >
-                 <div className="flex items-center justify-between mb-6 shrink-0">
+                 <div className="mb-5 flex items-center justify-between gap-3 shrink-0">
                     <div>
                       <h3 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">Browse Skills</h3>
                       <p className="mt-1 text-[11px] font-medium text-[var(--text-muted)]">
@@ -420,7 +519,7 @@ export default function Skills() {
                     </button>
                  </div>
 
-                 <div className="relative mb-6 shrink-0">
+                 <div className="relative mb-5 shrink-0">
                    <HiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                    <input
                      type="text"
@@ -442,7 +541,7 @@ export default function Skills() {
                    </div>
                  </div>
 
-                 <div className="min-h-[220px] max-h-[min(58vh,560px)] overflow-y-auto overscroll-contain touch-pan-y scroll-smooth space-y-6 pr-2 pb-6 custom-scrollbar [scrollbar-gutter:stable]">
+                 <div className="min-h-[220px] max-h-[min(58vh,560px)] space-y-5 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y scroll-smooth pr-2 pb-4 custom-scrollbar [scrollbar-gutter:stable]">
                    {Object.keys(filteredGrouped).length === 0 ? (
                      <div className="text-center py-12">
                         <p className="text-[var(--text-secondary)] font-medium">No skills found.</p>
@@ -494,6 +593,7 @@ export default function Skills() {
            </div>
         </div>
       </div>
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
     </AppLayout>
   );
 }

@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function PageSkeleton() {
   return (
     <div className="flex h-[calc(100vh-72px)] w-full flex-col p-6 max-w-7xl mx-auto space-y-6">

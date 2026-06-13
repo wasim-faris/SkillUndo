@@ -30,6 +30,66 @@ const linkClass = ({ isActive }) =>
     : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-white'
   }`;
 
+function SidebarContent({ user, onClose, onLogout, onLogin }) {
+  const nameParts = user?.name ? user.name.split(' ') : [];
+  const firstName = nameParts[0] || 'User';
+  const lastName = nameParts.slice(1).join(' ') || '';
+  const visibleNavItems = user?.is_staff
+    ? [...navItems, { to: '/dashboard', icon: HiOutlineSquares2X2, label: 'Admin Dashboard' }]
+    : user?.id
+      ? navItems
+      : navItems.filter((item) => ['/matches', '/skills'].includes(item.to));
+
+  return (
+    <div className="flex h-full flex-col justify-between overflow-y-auto p-4">
+      <div>
+        <div className="flex items-center gap-3 px-2 py-6 mb-8">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[var(--accent-primary)]">
+            <HiBolt className="text-white" size={24} />
+          </div>
+          <span className="font-bold text-[var(--text-primary)] text-xl tracking-tight">SkillUndo</span>
+        </div>
+
+        <nav className="space-y-2">
+          {visibleNavItems.map(({ to, icon: Icon, label }) => (
+            <NavLink key={to} to={to} className={linkClass} onClick={onClose}>
+              <Icon size={20} />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+
+      <div className="border-t border-[var(--border-default)] pt-6 mt-6 space-y-4">
+        {user?.id ? (
+          <>
+            <div className="flex items-center gap-4 px-3 py-1">
+              <Avatar firstName={firstName} lastName={lastName} src={user?.photo} size="md" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                  {user?.name || 'User'}
+                </p>
+                <p className="text-xs text-[var(--text-secondary)] truncate">{user?.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-semibold w-full text-red-400 hover:text-red-300 hover:bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.05)] hover:border-[rgba(239,68,68,0.2)] transition-all duration-200 group active:scale-[0.98]"
+            >
+              <HiArrowRightOnRectangle size={20} className="transition-transform group-hover:translate-x-0.5" />
+              Logout
+            </button>
+          </>
+        ) : (
+          <button onClick={onLogin} className="btn-primary w-full py-3">
+            Login
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -42,57 +102,14 @@ export default function Sidebar() {
     navigate('/', { replace: true });
   };
 
-  const SidebarContent = () => {
-    const nameParts = user?.name ? user.name.split(' ') : [];
-    const firstName = nameParts[0] || 'User';
-    const lastName = nameParts.slice(1).join(' ') || '';
-    const visibleNavItems = user?.is_staff
-      ? [...navItems, { to: '/dashboard', icon: HiOutlineSquares2X2, label: 'Admin Dashboard' }]
-      : navItems;
-
-    return (
-      <div className="flex h-full flex-col justify-between overflow-y-auto p-4">
-        <div>
-          {/* Logo */}
-          <div className="flex items-center gap-3 px-2 py-6 mb-8">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[var(--accent-primary)]">
-              <HiBolt className="text-white" size={24} />
-            </div>
-            <span className="font-bold text-[var(--text-primary)] text-xl tracking-tight">SkillUndo</span>
-          </div>
-
-          {/* Nav */}
-          <nav className="space-y-2">
-            {visibleNavItems.map(({ to, icon: Icon, label }) => (
-              <NavLink key={to} to={to} className={linkClass} onClick={() => setOpen(false)}>
-                <Icon size={20} />
-                {label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-
-        {/* User + Logout */}
-        <div className="border-t border-[var(--border-default)] pt-6 mt-6 space-y-4">
-          <div className="flex items-center gap-4 px-3 py-1">
-            <Avatar firstName={firstName} lastName={lastName} src={user?.photo} size="md" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                {user?.name || 'User'}
-              </p>
-              <p className="text-xs text-[var(--text-secondary)] truncate">{user?.email}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => { setOpen(false); setShowLogoutModal(true); }}
-            className="flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-semibold w-full text-red-400 hover:text-red-300 hover:bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.05)] hover:border-[rgba(239,68,68,0.2)] transition-all duration-200 group active:scale-[0.98]"
-          >
-            <HiArrowRightOnRectangle size={20} className="transition-transform group-hover:translate-x-0.5" />
-            Logout
-          </button>
-        </div>
-      </div>
-    );
+  const closeMenu = () => setOpen(false);
+  const openLogoutModal = () => {
+    setOpen(false);
+    setShowLogoutModal(true);
+  };
+  const goToLogin = () => {
+    setOpen(false);
+    navigate('/login');
   };
 
   return (
@@ -121,12 +138,12 @@ export default function Sidebar() {
           ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <SidebarContent />
+        <SidebarContent user={user} onClose={closeMenu} onLogout={openLogoutModal} onLogin={goToLogin} />
       </aside>
 
       {/* Desktop sidebar */}
       <aside className="sticky top-[96px] hidden h-[calc(100vh-120px)] w-72 shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-primary)] md:flex">
-        <SidebarContent />
+        <SidebarContent user={user} onClose={closeMenu} onLogout={openLogoutModal} onLogin={goToLogin} />
       </aside>
 
       {showLogoutModal && (

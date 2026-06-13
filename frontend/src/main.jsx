@@ -39,6 +39,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 function Root() {
   // Only use GoogleOAuthProvider if we have a valid client ID
   if (hasGoogleClientId) {
